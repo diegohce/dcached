@@ -4,6 +4,8 @@ import (
     "fmt"
     "net/http"
 	"encoding/json"
+	"io"
+	"io/ioutil"
     "github.com/julienschmidt/httprouter"
 )
 
@@ -19,6 +21,40 @@ type GetRequest struct {
 	AppName string
 	Key     string
 }
+
+
+
+func makeGetRequest(r *http.Request) (*GetRequest, error) {
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Body.Close()
+
+	gr := &GetRequest{}
+
+	err := json.Unmarshal(body, gr)
+
+	return gr, err
+}
+
+func makeSetRequest(r *http.Request) (*SetRequest, error) {
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Body.Close()
+
+	sr := &SetRequest{}
+
+	err := json.Unmarshal(body, sr)
+
+	return sr, err
+}
+
+
 
 
 func Index(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
