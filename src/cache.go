@@ -20,11 +20,18 @@ type StorageUnit struct {
 
 type AppCache map[string]map[string]StorageUnit
 
-
-
-
 type Cache struct {
 	storage AppCache
+}
+
+
+var (
+	CACHE *Cache
+)
+
+
+func init() {
+	CACHE = NewCache()
 }
 
 

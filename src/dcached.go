@@ -105,10 +105,8 @@ func main() {
     router.GET("/", Index)
     router.GET("/hello/:name", Hello)
 
-	c := NewCache()
-	c.Set("diego", "diego", "cena", 10)
-	v, ok := c.Get("diego", "diego")
-	fmt.Println(v, ok)
+    router.POST("/cache/get", CacheGet)
+    router.POST("/cache/set", CacheSet)
 
     log.Fatal(http.ListenAndServe(CACHE_IP_PORT, router))
 }
