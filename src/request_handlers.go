@@ -19,8 +19,9 @@ type SetRequest struct {
 }
 
 type GetRequest struct {
-	AppName string `json:"appname"`
-	Key     string `json:"key"`
+	SiblingName string `json:"sibling_name,omitempty"`
+	AppName     string `json:"appname"`
+	Key         string `json:"key"`
 }
 
 
@@ -166,14 +167,17 @@ func CacheGet(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	CACHE.Reads <-readop
 	<-readop.done
 
-	if !readop.found {
-		//FORWARD SEARCH TO SIBLINGS
-		sib_response := SIBLINGS_MANAGER.PropagateGet(gr)
-		if sib_response != nil {
-			c := &CacheResponse{Value: *sib_response}
-			c.Write(w)
-			log.Printf("%+v done from sibling\n", readop)
-			return
+	if !readop.found  {
+		if gr.SiblingName == "" { //IF REQUEST IS NOT FROM A SIBLING
+			//FORWARD SEARCH TO SIBLINGS
+			gr.SiblingName = ME
+			sib_response := SIBLINGS_MANAGER.PropagateGet(gr)
+			if sib_response != nil {
+				c := &CacheResponse{Value: *sib_response}
+				c.Write(w)
+				log.Printf("%+v done from sibling\n", readop)
+				return
+			}
 		}
 		e := NewException("KeyNotFoundException", "key not found")
 		e.Write(w)

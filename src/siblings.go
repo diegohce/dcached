@@ -33,7 +33,6 @@ func NewSiblingsManager() *SiblingsManager {
 			write_ch: make(chan Sibling),
 			gc_ch: make(chan bool) }
 
-
 	go func() {
 		for {
 			select {
@@ -109,7 +108,6 @@ func (sm *SiblingsManager) PropagateGet(gr *GetRequest) *string {
 	}
 
 	return response
-
 }
 
 
@@ -165,7 +163,6 @@ func (sm *SiblingsManager) forwardGet(s Sibling, gr *GetRequest, ch chan *string
 	ch <-&cr.Value
 
 }
-
 
 
 
