@@ -138,7 +138,6 @@ func CacheSet(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	log.Printf("%+v\n", writeop)
 
-
 	//LOCAL WRITE
 	CACHE.Writes <-writeop
 	<-writeop.done

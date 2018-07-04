@@ -141,6 +141,18 @@ func (sm *SiblingsManager) forwardGet(s Sibling, gr *GetRequest, ch chan *string
 
 	body, _ := ioutil.ReadAll(res.Body)
 
+	if res.StatusCode != 200 {
+		e := &ExceptionResponse{}
+		err = json.Unmarshal(body, e)
+		if err != nil {
+			log.Println(err, string(body))
+		} else {
+			log.Printf("%s\n", e)
+		}
+		ch<-nil
+		return
+	}
+
 	cr := &CacheResponse{}
 
 	err = json.Unmarshal(body, &cr)
