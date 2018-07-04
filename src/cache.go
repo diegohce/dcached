@@ -4,11 +4,27 @@ package main
 
 import (
 	//"fmt"
+	//"log"
 	"time"
 )
 
-type StorageUnitNotFound error
 
+type readOp struct {
+	app   string
+	key   string
+	val   string
+	found bool
+	done  chan bool
+}
+
+type writeOp struct {
+	app  string
+	key  string
+	val  string
+	ttl  int64
+	done chan bool
+
+}
 
 
 type StorageUnit struct {
@@ -22,6 +38,8 @@ type AppCache map[string]map[string]StorageUnit
 
 type Cache struct {
 	storage AppCache
+	Reads  chan *readOp
+	Writes chan *writeOp
 }
 
 
@@ -37,7 +55,28 @@ func init() {
 
 func NewCache() *Cache {
 
-	c := &Cache{storage: AppCache{} }
+	c := &Cache{storage: AppCache{},
+			Reads: make(chan *readOp),
+            Writes: make(chan *writeOp) }
+
+	go func(){
+		for {
+			select {
+				case read := <-c.Reads:
+				{
+					//log.Println("Received readop")
+					read.val, read.found = c.get(read.app, read.key)
+					read.done <- true
+				}
+				case write := <-c.Writes:
+				{
+					//log.Println("Received writeop")
+					c.set(write.app, write.key, write.val, write.ttl)
+					write.done <- true
+				}
+			}
+		}
+	}()
 
 	//start cache GC
 
@@ -45,7 +84,7 @@ func NewCache() *Cache {
 }
 
 
-func (c *Cache) Set(appname, key, value string, ttl int64) {
+func (c *Cache) set(appname, key, value string, ttl int64) {
 
 	su := StorageUnit {
 		CreatedAt: time.Now().Unix(),
@@ -61,7 +100,7 @@ func (c *Cache) Set(appname, key, value string, ttl int64) {
 
 }
 
-func (c *Cache) Get(appname, key string) (string, bool) {
+func (c *Cache) get(appname, key string) (string, bool) {
 
 	cache, ok := c.storage[appname]
 	if !ok {
