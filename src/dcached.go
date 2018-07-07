@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
     "github.com/julienschmidt/httprouter"
 	"net"
@@ -14,10 +15,17 @@ import (
 var (
 	SIBLINGS_ADDR = "224.0.0.1:9999"
 	BEACON_FREQ time.Duration = 2 //seconds
-	SIBLING_TTL int64 = 10 //seconds
-	CACHE_IP_PORT = ":8080"
-	CACHE_GC_FREQ = 3600
-	MY_PORT = "8080"
+	SIBLING_TTL int64 = 5 //seconds
+	CACHE_IP = ""
+	CACHE_PORT = "8080"
+	//CACHE_GC_FREQ = 3600
+	CACHE_GC_FREQ = 3
+	CACHE_GET_URL = "cache/get"
+	CACHE_SET_URL = "cache/set"
+	CACHE_REMOVE_URL = "cache/remove/:cache_block"
+	CACHE_REMOVE_KEY_URL = "cache/remove/key"
+	CACHE_REMOVE_APP_URL = "cache/remove/application"
+	CACHE_REMOVE_ALL_URL = "cache/remove/all"
 
 	ME = ""
 	maxDatagramSize = 8192
@@ -71,10 +79,11 @@ func main() {
 	go serveMulticastUDP(SIBLINGS_ADDR, nil, SIBLINGS_MANAGER.MsgHandler)
 
     router := httprouter.New()
-    router.POST("/cache/get", CacheGet)
-    router.POST("/cache/set", CacheSet)
+    router.POST("/"+CACHE_GET_URL, CacheGet)
+    router.POST("/"+CACHE_SET_URL, CacheSet)
+    router.POST("/"+CACHE_REMOVE_URL, CacheRemove)
 
-    log.Fatal(http.ListenAndServe(CACHE_IP_PORT, router))
+    log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%s", CACHE_IP, CACHE_PORT), router))
 }
 
 

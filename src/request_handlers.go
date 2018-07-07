@@ -3,9 +3,10 @@ package main
 import (
     "fmt"
 	"log"
+	"time"
+	"strconv"
     "net/http"
 	"encoding/json"
-	//"io"
 	"io/ioutil"
     "github.com/julienschmidt/httprouter"
 )
@@ -24,6 +25,11 @@ type GetRequest struct {
 	Key         string `json:"key"`
 }
 
+type RemoveRequest struct {
+	SiblingName string `json:"sibling_name,omitempty"`
+	AppName     string `json:"appname"`
+	Key         string `json:"key,omitempty"`
+}
 
 type ExceptionResponse struct {
 	Exception string   `json:"exception"`
@@ -33,7 +39,8 @@ type ExceptionResponse struct {
 }
 
 type CacheResponse struct {
-	Value string `json:"value"`
+	Value      string `json:"value"`
+	Elapsed_ns int64 `json:"elapsed_ns"`
 }
 func (c *CacheResponse) String() string {
 	b, _ := json.Marshal(c)
@@ -69,7 +76,7 @@ func (e *ExceptionResponse) Write(w http.ResponseWriter) {
 
 
 
-func makeGetRequest(r *http.Request) (*GetRequest, error) {
+func newGetRequest(r *http.Request) (*GetRequest, error) {
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -91,7 +98,7 @@ func makeGetRequest(r *http.Request) (*GetRequest, error) {
 	return gr, err
 }
 
-func makeSetRequest(r *http.Request) (*SetRequest, error) {
+func newSetRequest(r *http.Request) (*SetRequest, error) {
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -118,10 +125,24 @@ func makeSetRequest(r *http.Request) (*SetRequest, error) {
 	return sr, err
 }
 
+func newRemoveRequest(r *http.Request) (*RemoveRequest, error) {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Body.Close()
 
-func CacheSet(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	rr := &RemoveRequest{}
 
-	sr, err := makeSetRequest(r)
+	err = json.Unmarshal(body, rr)
+
+	return rr, err
+}
+
+
+func CacheSet(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+
+	sr, err := newSetRequest(r)
 	if err != nil {
 		log.Println(err)
 		e := NewException("InvalidJsonPayloadException", "Invalid json payload")
@@ -137,18 +158,18 @@ func CacheSet(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 				val: sr.Value,
 				ttl: sr.TTL }
 
-	log.Printf("%+v\n", writeop)
+	log.Printf("request::set %+v\n", writeop)
 
 	//LOCAL WRITE
 	CACHE.Writes <-writeop
 	<-writeop.done
 
-	log.Printf("%+v done\n", writeop)
+	log.Printf("request::set %+v done\n", writeop)
 }
 
-func CacheGet(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func CacheGet(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
-	gr, err := makeGetRequest(r)
+	gr, err := newGetRequest(r)
 	if err != nil {
 		log.Println(err)
 		e := NewException("InvalidJsonPayloadException", "Invalid json payload")
@@ -162,10 +183,15 @@ func CacheGet(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 				app: gr.AppName,
 				key: gr.Key }
 
-	log.Printf("%+v\n", readop)
+	log.Printf("request::get %+v\n", readop)
+
+	timeit_start := time.Now().UnixNano()
+
 
 	CACHE.Reads <-readop
 	<-readop.done
+
+	log.Printf("request::get %+v done\n", readop)
 
 	if !readop.found  {
 		if gr.SiblingName == "" { //IF REQUEST IS NOT FROM A SIBLING
@@ -173,21 +199,86 @@ func CacheGet(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 			gr.SiblingName = ME
 			sib_response := SIBLINGS_MANAGER.PropagateGet(gr)
 			if sib_response != nil {
-				c := &CacheResponse{Value: *sib_response}
-				c.Write(w)
-				log.Printf("%+v done from sibling\n", readop)
-				return
+				readop.val = *sib_response
+				readop.found = true
+				log.Printf("%+v done from sibling %s\n", readop, gr.SiblingName)
 			}
 		}
-		e := NewException("KeyNotFoundException", "key not found")
+
+		if !readop.found {
+			timeit_total := time.Now().UnixNano() - timeit_start
+			e := NewException("KeyNotFoundException", "key not found")
+			e.Extended["elapsed_ns"] = strconv.Itoa(int(timeit_total))
+			e.Write(w)
+			return
+		}
+	}
+
+	timeit_total := time.Now().UnixNano() - timeit_start
+
+	c := &CacheResponse{
+		Value: readop.val,
+		Elapsed_ns: timeit_total,
+	}
+	c.Write(w)
+
+	log.Printf("%+v done\n", readop)
+
+}
+
+func CacheRemove(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
+	cache_block := ps.ByName("cache_block")
+
+	rr, err := newRemoveRequest(r)
+	if err != nil {
+		log.Println(err)
+		e := NewException("InvalidJsonPayloadException", "Invalid json payload")
+		e.Extended["more"] = fmt.Sprintf("%s", err)
 		e.Write(w)
 		return
 	}
 
-	c := &CacheResponse{Value: readop.val}
-	c.Write(w)
+	removeop := &removeOp {
+		done: make(chan bool),
+		app: rr.AppName,
+		key: rr.Key,
+	}
 
-	log.Printf("%+v done\n", readop)
+	if cache_block == "key" {
+
+		if rr.AppName == "" || rr.Key == "" {
+			e := NewException("InvalidJsonPayloadException", "Invalid json payload")
+			e.Extended["more"] = "appname and key must be present"
+			e.Write(w)
+			return
+		}
+
+		CACHE.RemoveKey <-removeop
+		<-removeop.done
+
+		if !removeop.found {
+			//PROPAGATE REMOVE KEY
+		}
+
+	} else if cache_block == "application" {
+
+		if rr.AppName == ""  {
+			e := NewException("InvalidJsonPayloadException", "Invalid json payload")
+			e.Extended["more"] = "appname must be present"
+			e.Write(w)
+			return
+		}
+
+		CACHE.RemoveApp <-removeop
+		<-removeop.done
+
+		//PROPAGATE REMOVE APP
+
+	} else {
+		e := NewException("ResourceNotFoundException", "Resource not found")
+		e.Write(w)
+	}
 
 }
 

@@ -4,7 +4,7 @@ package main
 
 import (
 	//"fmt"
-	//"log"
+	"log"
 	"time"
 )
 
@@ -23,9 +23,15 @@ type writeOp struct {
 	val  string
 	ttl  int64
 	done chan bool
-
 }
 
+
+type removeOp struct {
+	app   string
+	key   string
+	found bool
+	done  chan bool
+}
 
 type StorageUnit struct {
 	CreatedAt int64
@@ -37,9 +43,12 @@ type StorageUnit struct {
 type AppCache map[string]map[string]StorageUnit
 
 type Cache struct {
-	storage AppCache
-	Reads  chan *readOp
-	Writes chan *writeOp
+	storage   AppCache
+	Reads     chan *readOp
+	Writes    chan *writeOp
+	RemoveKey chan *removeOp
+	RemoveApp chan *removeOp
+	GcTimer   *time.Ticker
 }
 
 
@@ -56,29 +65,43 @@ func init() {
 func NewCache() *Cache {
 
 	c := &Cache{storage: AppCache{},
-			Reads: make(chan *readOp),
-            Writes: make(chan *writeOp) }
+		Reads: make(chan *readOp),
+        Writes: make(chan *writeOp),
+		RemoveKey: make(chan *removeOp),
+		RemoveApp: make(chan *removeOp),
+		GcTimer: time.NewTicker(time.Duration(CACHE_GC_FREQ) * time.Second),
+	 }
 
 	go func(){
 		for {
 			select {
 				case read := <-c.Reads:
 				{
-					//log.Println("Received readop")
+					log.Println("cache::readop", read)
 					read.val, read.found = c.get(read.app, read.key)
 					read.done <- true
+					log.Println("cache::readop", read, "done")
 				}
 				case write := <-c.Writes:
 				{
-					//log.Println("Received writeop")
 					c.set(write.app, write.key, write.val, write.ttl)
 					write.done <- true
 				}
+				case removek := <-c.RemoveKey:
+				{
+					removek.found = c.removeKey(removek.app, removek.key)
+					removek.done <- true
+				}
+				case removea := <-c.RemoveApp:
+				{
+					removea.found = c.removeApp(removea.app)
+					removea.done <- true
+				}
+				case <-c.GcTimer.C:
+					c.gc()
 			}
 		}
 	}()
-
-	//start cache GC
 
 	return c
 }
@@ -118,6 +141,49 @@ func (c *Cache) get(appname, key string) (string, bool) {
 	}
 
 	return su.Value, ok
+}
+
+func (c *Cache) removeKey(appname, key string) bool {
+
+	cache, ok := c.storage[appname]
+	if !ok {
+		return false
+	}
+
+	_, ok = cache[key]
+	if !ok {
+		return false
+	}
+
+	delete(c.storage[appname], key)
+	return true
+}
+
+
+func (c *Cache) removeApp(appname string) bool {
+
+	_, ok := c.storage[appname]
+	if !ok {
+		return false
+	}
+
+	delete(c.storage, appname)
+	return true
+}
+
+func (c *Cache) gc() {
+
+	log.Println("cache::Starting GC")
+
+	for app, cache := range c.storage {
+		for k , su := range cache {
+			if time.Now().Unix() - su.CreatedAt > su.TTL {
+				delete(c.storage[app], k)
+				log.Printf("cache::%s->%s has been killed", app, k)
+			}
+		}
+	}
+	log.Println("cache::GC finished")
 }
 
 
