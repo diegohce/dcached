@@ -41,15 +41,13 @@ func NewSiblingsManager() *SiblingsManager {
 			s := <-sm.write_ch
 
 			sm.mutex.Lock()
-			sm.siblings[s.Node] = s
 
-			for k, sibling := range sm.siblings {
-				if time.Now().Unix() - sibling.LastCall >= SIBLING_TTL {
-					log.Println(k ,"must die")
-					delete(sm.siblings, k)
-				}
+			_, ok := sm.siblings[s.Node]
+			sm.siblings[s.Node] = s
+			if !ok {
+				log.Printf("siblings::add::count %+v\n", len(sm.siblings))
 			}
-			log.Printf("%+v\n", sm.siblings)
+
 			sm.mutex.Unlock()
 		}
 	}()
@@ -69,6 +67,16 @@ func (sm *SiblingsManager) MsgHandler(src *net.UDPAddr, bcount int, bread []byte
 			 LastCall: time.Now().Unix() }
 		sm.write_ch <-s
 	}
+
+	sm.mutex.Lock()
+	for k, sibling := range sm.siblings {
+		if time.Now().Unix() - sibling.LastCall >= SIBLING_TTL {
+			log.Println("siblings::gc", k ,"must die")
+			delete(sm.siblings, k)
+			log.Printf("siblings::gc::count %+v\n", len(sm.siblings))
+		}
+	}
+	sm.mutex.Unlock()
 }
 
 func (sm *SiblingsManager) GetSibling(node string) *Sibling {
@@ -88,11 +96,10 @@ func (sm *SiblingsManager) PropagateGet(gr *GetRequest) *string {
 
 	response = nil
 
-	ch := make(chan *string)
 
 	sm.mutex.RLock()
 
-	//scount := len(sm.siblings)
+	scount := len(sm.siblings)
 	ch := make(chan *string, scount)
 
 	for k,s := range sm.siblings {

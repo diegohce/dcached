@@ -179,7 +179,7 @@ func (c *Cache) gc() {
 		for k , su := range cache {
 			if time.Now().Unix() - su.CreatedAt > su.TTL {
 				delete(c.storage[app], k)
-				log.Printf("cache::%s->%s has been killed", app, k)
+				log.Printf("cache::GC %s->%s has been killed", app, k)
 			}
 		}
 	}

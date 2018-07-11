@@ -19,7 +19,7 @@ var (
 	CACHE_IP = ""
 	CACHE_PORT = "8080"
 	//CACHE_GC_FREQ = 3600
-	CACHE_GC_FREQ = 3
+	CACHE_GC_FREQ = 5
 	CACHE_GET_URL = "cache/get"
 	CACHE_SET_URL = "cache/set"
 	CACHE_REMOVE_URL = "cache/remove/:cache_block"
@@ -28,7 +28,7 @@ var (
 	CACHE_REMOVE_ALL_URL = "cache/remove/all"
 
 	ME = ""
-	maxDatagramSize = 8192
+	maxDatagramSize = 128
 	SIBLINGS_MANAGER *SiblingsManager
 )
 
