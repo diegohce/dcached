@@ -33,22 +33,36 @@ type removeOp struct {
 	done  chan bool
 }
 
+type statsOp struct {
+	stats *CacheStats
+	done  chan bool
+}
+
 type StorageUnit struct {
 	CreatedAt int64
 	Value     string
 	TTL       int64
 }
 
+type CacheStats struct {
+	Node         string    `json:"node"`
+	Nodes        []Sibling `json:"nodes"`
+	Applications []string  `json:"applications"`
+	MemBytes     int64     `json:"mem_bytes"`
+	Elapsed_ns   int64     `json:"elapsed_ns"`
+}
 
 type AppCache map[string]map[string]StorageUnit
 
 type Cache struct {
 	storage   AppCache
-	Reads     chan *readOp
-	Writes    chan *writeOp
-	RemoveKey chan *removeOp
-	RemoveApp chan *removeOp
-	GcTimer   *time.Ticker
+	Reads      chan *readOp
+	Writes     chan *writeOp
+	RemoveKey  chan *removeOp
+	RemoveApp  chan *removeOp
+	RemoveAll  chan *removeOp
+	CacheStats chan *statsOp
+	GcTimer    *time.Ticker
 }
 
 
@@ -69,6 +83,8 @@ func NewCache() *Cache {
         Writes: make(chan *writeOp),
 		RemoveKey: make(chan *removeOp),
 		RemoveApp: make(chan *removeOp),
+		RemoveAll: make(chan *removeOp),
+		CacheStats: make(chan *statsOp),
 		GcTimer: time.NewTicker(time.Duration(CACHE_GC_FREQ) * time.Second),
 	 }
 
@@ -96,6 +112,16 @@ func NewCache() *Cache {
 				{
 					removea.found = c.removeApp(removea.app)
 					removea.done <- true
+				}
+				case removeall := <-c.RemoveAll:
+				{
+					c.removeAll()
+					removeall.done <- true
+				}
+				case stats := <-c.CacheStats:
+				{
+					stats.stats = c.stats()
+					stats.done <- true
 				}
 				case <-c.GcTimer.C:
 					c.gc()
@@ -171,6 +197,13 @@ func (c *Cache) removeApp(appname string) bool {
 	return true
 }
 
+func (c *Cache) removeAll() {
+
+	for app, _ := range c.storage {
+		delete(c.storage, app)
+	}
+}
+
 func (c *Cache) gc() {
 
 	log.Println("cache::Starting GC")
@@ -182,8 +215,31 @@ func (c *Cache) gc() {
 				log.Printf("cache::GC %s->%s has been killed", app, k)
 			}
 		}
+		if len(c.storage[app]) == 0 {
+			delete(c.storage, app)
+		}
 	}
 	log.Println("cache::GC finished")
 }
+
+func (c *Cache) stats() *CacheStats {
+
+	cs := &CacheStats{
+		Node:  ME,
+		Nodes: SIBLINGS_MANAGER.GetSiblings(),
+		MemBytes: 0,
+	}
+
+	for app, cache := range c.storage {
+		cs.Applications = append(cs.Applications, app)
+		for k , su := range cache {
+			cs.MemBytes += int64(len(k)) + int64(len(su.Value))
+
+		}
+	}
+
+	return cs
+}
+
 
 

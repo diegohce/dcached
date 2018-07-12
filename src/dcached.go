@@ -26,6 +26,9 @@ var (
 	CACHE_REMOVE_KEY_URL = "cache/remove/key"
 	CACHE_REMOVE_APP_URL = "cache/remove/application"
 	CACHE_REMOVE_ALL_URL = "cache/remove/all"
+	CACHE_STATS_URL = "cache/stats/:stats_type"
+	CACHE_STATS_LOCAL_URL = "cache/stats/local"
+	CACHE_STATS_ALL_URL = "cache/stats/all"
 
 	ME = ""
 	maxDatagramSize = 128
@@ -82,6 +85,7 @@ func main() {
     router.POST("/"+CACHE_GET_URL, CacheGet)
     router.POST("/"+CACHE_SET_URL, CacheSet)
     router.POST("/"+CACHE_REMOVE_URL, CacheRemove)
+    router.GET("/"+CACHE_STATS_URL, CacheStatsHandler)
 
     log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%s", CACHE_IP, CACHE_PORT), router))
 }

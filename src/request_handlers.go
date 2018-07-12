@@ -13,10 +13,11 @@ import (
 
 
 type SetRequest struct {
-	AppName string `json:"appname"`
-	Key     string `json:"key"`
-	Value   string `json:"value"`
-	TTL     int64  `json:"ttl"`
+	SiblingName string `json:"sibling_name,omitempty"`
+	AppName     string `json:"appname"`
+	Key         string `json:"key"`
+	Value       string `json:"value"`
+	TTL         int64  `json:"ttl"`
 }
 
 type GetRequest struct {
@@ -151,6 +152,11 @@ func CacheSet(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		return
 	}
 
+	readop := &readOp {
+				done: make(chan bool),
+				app: sr.AppName,
+				key: sr.Key }
+
 	writeop := &writeOp {
 				done: make(chan bool),
 				app: sr.AppName,
@@ -158,13 +164,44 @@ func CacheSet(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 				val: sr.Value,
 				ttl: sr.TTL }
 
-	log.Printf("request::set %+v\n", writeop)
+	log.Printf("request::set checking if %s::%s is mine\n", sr.AppName, sr.Key)
 
-	//LOCAL WRITE
-	CACHE.Writes <-writeop
-	<-writeop.done
+	timeit_start := time.Now().UnixNano()
 
-	log.Printf("request::set %+v done\n", writeop)
+	CACHE.Reads <-readop
+	<-readop.done
+
+	if readop.found {
+		log.Printf("request::set %s::%s is mine. Updating storage unit\n", sr.AppName, sr.Key)
+		//LOCAL WRITE
+		CACHE.Writes <-writeop
+		<-writeop.done
+
+	} else { //KEY IS NOT MINE, ASK SIBLINGS
+		log.Printf("request::set %s::%s is not mine\n", sr.AppName, sr.Key)
+		if sr.SiblingName == "" { //IF IT ISN'T A FORWARDED SET
+			sr.SiblingName = ME
+			SIBLINGS_MANAGER.PropagateSet(sr)
+
+		} else {
+			e := NewException("ForwardedKeyNotPresent", "Forwarded key not present in this node")
+			e.Extended["sr.SiblingName"] = sr.SiblingName
+			e.Write(w)
+			return
+		}
+		if sr.SiblingName == ME { //NOBODY HAS THE KEY
+			log.Printf("request::set nobody has %s::%s\n", writeop.app, writeop.key)
+			//LOCAL WRITE
+			CACHE.Writes <-writeop
+			<-writeop.done
+			log.Printf("request::set %s::%s stored\n", writeop.app, writeop.key)
+		}
+	}
+	cr := &CacheResponse{
+		Value: sr.Value,
+		Elapsed_ns: time.Now().UnixNano() - timeit_start,
+	}
+	cr.Write(w)
 }
 
 func CacheGet(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -257,8 +294,10 @@ func CacheRemove(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		CACHE.RemoveKey <-removeop
 		<-removeop.done
 
-		if !removeop.found {
+		if !removeop.found && rr.SiblingName == "" {
 			//PROPAGATE REMOVE KEY
+			rr.SiblingName = ME
+			SIBLINGS_MANAGER.PropagateRemove(rr, cache_block)
 		}
 
 	} else if cache_block == "application" {
@@ -273,7 +312,29 @@ func CacheRemove(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		CACHE.RemoveApp <-removeop
 		<-removeop.done
 
-		//PROPAGATE REMOVE APP
+		if rr.SiblingName == "" {
+			//PROPAGATE REMOVE APP
+			rr.SiblingName = ME
+			SIBLINGS_MANAGER.PropagateRemove(rr, cache_block)
+		}
+
+	} else if cache_block == "all" {
+
+		if rr.AppName == ""  {
+			e := NewException("InvalidJsonPayloadException", "Invalid json payload")
+			e.Extended["more"] = "appname must be present"
+			e.Write(w)
+			return
+		}
+
+		CACHE.RemoveAll <-removeop
+		<-removeop.done
+
+		if rr.SiblingName == "" {
+			//PROPAGATE REMOVE APP
+			rr.SiblingName = ME
+			SIBLINGS_MANAGER.PropagateRemove(rr, cache_block)
+		}
 
 	} else {
 		e := NewException("ResourceNotFoundException", "Resource not found")

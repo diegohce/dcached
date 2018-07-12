@@ -15,9 +15,9 @@ import (
 
 
 type Sibling struct {
-	Node     string
-	Ip       string
-	LastCall int64
+	Node     string `json:"node"`
+	Ip       string `json:"ip"`
+	LastCall int64  `json:"last_call"`
 }
 
 
@@ -79,15 +79,17 @@ func (sm *SiblingsManager) MsgHandler(src *net.UDPAddr, bcount int, bread []byte
 	sm.mutex.Unlock()
 }
 
-func (sm *SiblingsManager) GetSibling(node string) *Sibling {
+func (sm *SiblingsManager) GetSiblings() []Sibling  {
+
+	var siblings []Sibling
 
 	sm.mutex.RLock()
-	s, ok := sm.siblings[node]
-	sm.mutex.RUnlock()
-	if !ok {
-		return nil
+	for _, sibling := range sm.siblings {
+		siblings = append(siblings, sibling)
 	}
-	return &s
+	sm.mutex.RUnlock()
+
+	return siblings
 }
 
 func (sm *SiblingsManager) PropagateGet(gr *GetRequest) *string {
@@ -178,5 +180,197 @@ func (sm *SiblingsManager) forwardGet(s Sibling, gr *GetRequest, ch chan *string
 
 }
 
+
+func (sm *SiblingsManager) PropagateSet(sr *SetRequest) {
+
+	sm.mutex.RLock()
+
+	scount := len(sm.siblings)
+	ch := make(chan int, scount)
+
+	for k,s := range sm.siblings {
+		log.Println("siblings::Forwarding set to", k)
+		go sm.forwardSet(s, sr, ch)
+	}
+	sm.mutex.RUnlock()
+
+	for i := 0; i < scount; i++ {
+		status_code := <-ch
+
+		if status_code == 200 {
+			log.Printf("siblings::Sibling::set response %d\n", status_code)
+			break
+		} else {
+			log.Println("siblings::Sibling::set response", status_code)
+		}
+	}
+}
+
+
+func (sm *SiblingsManager) forwardSet(s Sibling, sr *SetRequest, ch chan int) {
+
+	url := fmt.Sprintf("http://%s:%s/%s", s.Ip, CACHE_PORT, CACHE_SET_URL)
+
+	sr_json , _ := json.Marshal(sr)
+
+	payload := bytes.NewReader(sr_json)
+
+	req, err := http.NewRequest("POST", url, payload)
+	if err != nil {
+		log.Println(err)
+		ch <-0
+		return
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	client := &http.Client{}
+
+	res, err := client.Do(req)
+	if err != nil {
+		log.Println(err)
+		ch <-0
+		return
+	}
+	defer res.Body.Close()
+
+
+	if res.StatusCode != 200 {
+		log.Printf("Sibling %s does not have %s::%s\n", s.Node, sr.AppName, sr.Key)
+	} else {
+		sr.SiblingName = s.Node
+		log.Printf("Sibling %s does have %s::%s\n", s.Node, sr.AppName, sr.Key)
+	}
+
+	ch <-res.StatusCode
+
+}
+
+
+
+func (sm *SiblingsManager) PropagateRemove(rr *RemoveRequest, cache_block string) {
+
+	sm.mutex.RLock()
+
+	for k,s := range sm.siblings {
+		log.Println("siblings::Forwarding remove to", k)
+		go sm.forwardRemove(s, rr, cache_block)
+	}
+	sm.mutex.RUnlock()
+
+}
+
+
+func (sm *SiblingsManager) forwardRemove(s Sibling, rr *RemoveRequest, cache_block string) {
+
+	var url string
+
+	if cache_block == "key" {
+		url = fmt.Sprintf("http://%s:%s/%s", s.Ip, CACHE_PORT, CACHE_REMOVE_KEY_URL)
+
+	} else if cache_block == "application" {
+		url = fmt.Sprintf("http://%s:%s/%s", s.Ip, CACHE_PORT, CACHE_REMOVE_APP_URL)
+
+	} else if cache_block == "all" {
+		url = fmt.Sprintf("http://%s:%s/%s", s.Ip, CACHE_PORT, CACHE_REMOVE_ALL_URL)
+
+	} else {
+		return
+	}
+
+	rr_json , _ := json.Marshal(rr)
+
+	payload := bytes.NewReader(rr_json)
+
+	req, err := http.NewRequest("POST", url, payload)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	client := &http.Client{}
+
+	res, err := client.Do(req)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer res.Body.Close()
+
+}
+
+func (sm *SiblingsManager) PropagateStats() chan *CacheStats {
+
+	sm.mutex.RLock()
+
+	scount := len(sm.siblings)
+	ch := make(chan *CacheStats, scount)
+
+	for k ,s := range sm.siblings {
+		log.Println("siblings::Forwarding statsop to", k)
+		go sm.forwardStats(s, ch)
+	}
+	sm.mutex.RUnlock()
+
+	if scount == 0 {
+		close(ch)
+		return ch
+	}
+
+	out_ch := make(chan *CacheStats, scount)
+
+	for i := 0; i < scount; i++ {
+		stat := <-ch
+		out_ch <-stat
+	}
+	close(out_ch)
+
+	return out_ch
+}
+
+
+func (sm *SiblingsManager) forwardStats(s Sibling, ch chan *CacheStats ) {
+
+	url := fmt.Sprintf("http://%s:%s/%s", s.Ip, CACHE_PORT, CACHE_STATS_LOCAL_URL)
+
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		log.Println(err)
+		ch <-nil
+		return
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	client := &http.Client{}
+
+	res, err := client.Do(req)
+	if err != nil {
+		log.Println(err)
+		ch <-nil
+		return
+	}
+	defer res.Body.Close()
+
+	body, _ := ioutil.ReadAll(res.Body)
+
+	if res.StatusCode != 200 {
+		log.Println(err, string(body))
+		ch<-nil
+		return
+	}
+
+	cs := &CacheStats{}
+
+	err = json.Unmarshal(body, cs)
+	if err != nil {
+		log.Println(err)
+		ch <-nil
+		return
+	}
+
+	log.Printf("Sending %+v to stats channel\n", *cs)
+	ch <-cs
+}
 
 
