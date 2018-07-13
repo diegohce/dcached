@@ -22,6 +22,7 @@ type writeOp struct {
 	key  string
 	val  string
 	ttl  int64
+	ct   int64
 	done chan bool
 }
 
@@ -62,6 +63,7 @@ type Cache struct {
 	RemoveApp  chan *removeOp
 	RemoveAll  chan *removeOp
 	CacheStats chan *statsOp
+	Imports    chan *writeOp
 	GcTimer    *time.Ticker
 }
 
@@ -85,6 +87,7 @@ func NewCache() *Cache {
 		RemoveApp: make(chan *removeOp),
 		RemoveAll: make(chan *removeOp),
 		CacheStats: make(chan *statsOp),
+        Imports: make(chan *writeOp),
 		GcTimer: time.NewTicker(time.Duration(CACHE_GC_FREQ) * time.Second),
 	 }
 
@@ -122,6 +125,11 @@ func NewCache() *Cache {
 				{
 					stats.stats = c.stats()
 					stats.done <- true
+				}
+				case importf := <-c.Imports:
+				{
+					c.importForeign(importf)
+					//importf.done <- true
 				}
 				case <-c.GcTimer.C:
 					c.gc()
@@ -239,6 +247,48 @@ func (c *Cache) stats() *CacheStats {
 	}
 
 	return cs
+}
+
+type ExportUnit struct {
+	AppName   string `json:"appname"`
+	CreatedAt int64  `json:"created_at"`
+	Key       string `json:"key"`
+	Value     string `json:"val"`
+	TTL       int64  `json:"ttl"`
+}
+
+func (c *Cache) contentExporter(ch chan *ExportUnit) {
+
+	for app, cache := range c.storage {
+		for k , su := range cache {
+			eu := &ExportUnit{
+				AppName: app,
+				CreatedAt: su.CreatedAt,
+				Key: k,
+				Value: su.Value,
+				TTL: su.TTL,
+			}
+			delete(c.storage[app], k)
+			ch <-eu
+			log.Printf("cache::export %+v ready to export", eu)
+		}
+	}
+	close(ch)
+}
+
+func (c *Cache) importForeign(wop *writeOp) {
+	su := StorageUnit {
+		CreatedAt: wop.ct,
+		Value: wop.val,
+		TTL: wop.ttl,
+	 }
+
+	_, ok := c.storage[wop.app]
+	if !ok {
+		c.storage[wop.app] = map[string]StorageUnit{}
+	}
+
+	c.storage[wop.app][wop.key] = su
 }
 
 

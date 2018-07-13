@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/signal"
     "github.com/julienschmidt/httprouter"
 	"net"
     "net/http"
@@ -11,6 +12,9 @@ import (
 	//"encoding/hex"
 )
 
+var (
+	VERSION = "0.0.0"
+)
 
 var (
 	SIBLINGS_ADDR = "224.0.0.1:9999"
@@ -29,6 +33,7 @@ var (
 	CACHE_STATS_URL = "cache/stats/:stats_type"
 	CACHE_STATS_LOCAL_URL = "cache/stats/local"
 	CACHE_STATS_ALL_URL = "cache/stats/all"
+	CACHE_IMPORT_URL = "cache/import"
 
 	ME = ""
 	maxDatagramSize = 128
@@ -71,12 +76,28 @@ func serveMulticastUDP(a string, iface *net.Interface, callback func(*net.UDPAdd
 	}
 }
 
+func exportcache(sig_ch chan os.Signal) {
+
+	s := <-sig_ch
+
+	log.Println("Received signal",s)
+
+	SIBLINGS_MANAGER.DistributeContent()
+
+	os.Exit(0)
+}
 
 func main() {
 
 	ME, _ = os.Hostname()
 
+	log.Println("Starting Dcached", VERSION,"on", ME)
+
 	SIBLINGS_MANAGER = NewSiblingsManager()
+
+	sig_ch := make(chan os.Signal, 1)
+	signal.Notify(sig_ch, os.Interrupt)
+	go exportcache(sig_ch)
 
 	go udpBeacon()
 	go serveMulticastUDP(SIBLINGS_ADDR, nil, SIBLINGS_MANAGER.MsgHandler)
@@ -86,6 +107,7 @@ func main() {
     router.POST("/"+CACHE_SET_URL, CacheSet)
     router.POST("/"+CACHE_REMOVE_URL, CacheRemove)
     router.GET("/"+CACHE_STATS_URL, CacheStatsHandler)
+    router.POST("/"+CACHE_IMPORT_URL, CacheImport)
 
     log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%s", CACHE_IP, CACHE_PORT), router))
 }

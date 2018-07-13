@@ -373,4 +373,70 @@ func (sm *SiblingsManager) forwardStats(s Sibling, ch chan *CacheStats ) {
 	ch <-cs
 }
 
+func (sm *SiblingsManager) DistributeContent() {
+
+	var sib_list []Sibling
+
+	sm.mutex.RLock()
+	scount := len(sm.siblings)
+	if scount == 0 {
+		sm.mutex.RUnlock()
+		return
+	}
+
+	for _ ,s := range sm.siblings {
+		sib_list = append(sib_list, s)
+	}
+	sm.mutex.RUnlock()
+
+	ch := make(chan *ExportUnit)
+
+	go CACHE.contentExporter(ch)
+
+	sib_idx := 0
+	sib_list_len := len(sib_list)
+
+	for eu := range ch {
+		if sib_idx == sib_list_len {
+			sib_idx = 0
+		}
+		sib := sib_list[sib_idx]
+		sib_idx++
+		log.Printf("siblings::exporting %+v to %s\n", eu, sib.Node)
+		sm.distributeExport(sib, eu)
+
+	}
+
+}
+
+func (sm *SiblingsManager) distributeExport(s Sibling, eu *ExportUnit) {
+
+	url := fmt.Sprintf("http://%s:%s/%s", s.Ip, CACHE_PORT, CACHE_IMPORT_URL)
+
+	eu_json , _ := json.Marshal(eu)
+
+	payload := bytes.NewReader(eu_json)
+
+	req, err := http.NewRequest("POST", url, payload)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	client := &http.Client{}
+
+	res, err := client.Do(req)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer res.Body.Close()
+
+
+	log.Printf("Sibling %s status code %d\n", s.Node, res.StatusCode )
+
+}
+
+
 
