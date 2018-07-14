@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"syscall"
 	"os/signal"
     "github.com/julienschmidt/httprouter"
 	"net"
@@ -97,6 +98,7 @@ func main() {
 
 	sig_ch := make(chan os.Signal, 1)
 	signal.Notify(sig_ch, os.Interrupt)
+	signal.Notify(sig_ch, syscall.SIGTERM)
 	go exportcache(sig_ch)
 
 	go udpBeacon()
