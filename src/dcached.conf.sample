@@ -1,0 +1,13 @@
+cache:
+  ip: "" #leave blank
+  port: "8080" #listen port for cache service.
+  gc_freq: 3600 #seconds
+
+
+siblings:
+  address: "224.0.0.1:9999" #multicast group.
+  beacon_freq: 2 #seconds
+  max_datagram_size: 128 #bytes, hostname MUST fit here.
+  ttl: 5 #seconds, time to expire siblings registrar.
+
+

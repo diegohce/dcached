@@ -68,15 +68,11 @@ type Cache struct {
 }
 
 
-var (
-	CACHE *Cache
-)
 
-
-func init() {
+/*func init() {
 	CACHE = NewCache()
 }
-
+*/
 
 func NewCache() *Cache {
 
@@ -270,7 +266,7 @@ func (c *Cache) contentExporter(ch chan *ExportUnit) {
 			}
 			delete(c.storage[app], k)
 			ch <-eu
-			log.Printf("cache::export %+v ready to export", eu)
+			log.Printf("cache::export %+v ready to export\n", eu)
 		}
 	}
 	close(ch)

@@ -21,10 +21,13 @@ var (
 	SIBLINGS_ADDR = "224.0.0.1:9999"
 	BEACON_FREQ time.Duration = 2 //seconds
 	SIBLING_TTL int64 = 5 //seconds
+
+	maxDatagramSize = 128
+
 	CACHE_IP = ""
 	CACHE_PORT = "8080"
-	//CACHE_GC_FREQ = 3600
-	CACHE_GC_FREQ = 5
+	CACHE_GC_FREQ = 3600
+
 	CACHE_GET_URL = "cache/get"
 	CACHE_SET_URL = "cache/set"
 	CACHE_REMOVE_URL = "cache/remove/:cache_block"
@@ -37,8 +40,11 @@ var (
 	CACHE_IMPORT_URL = "cache/import"
 
 	ME = ""
-	maxDatagramSize = 128
 	SIBLINGS_MANAGER *SiblingsManager
+)
+
+var (
+	CACHE *Cache
 )
 
 
@@ -58,6 +64,9 @@ func udpBeacon() {
 }
 
 func serveMulticastUDP(a string, iface *net.Interface, callback func(*net.UDPAddr, int, []byte)) {
+
+	log.Println("Listening for siblings beacon")
+
 	addr, err := net.ResolveUDPAddr("udp", a)
 	if err != nil {
 		log.Fatal(err)
@@ -92,8 +101,16 @@ func main() {
 
 	ME, _ = os.Hostname()
 
-	log.Println("Starting Dcached", VERSION,"on", ME)
+	readConfig()
 
+	log.Println("Starting Dcached", VERSION,"on", ME, "[ port", CACHE_PORT,"]")
+	log.Println("Multicast group", SIBLINGS_ADDR)
+	log.Println("Beacon interval", int(BEACON_FREQ), "seconds")
+	log.Println("Sublings TTL", SIBLING_TTL, "seconds")
+	log.Println("Garbage collector interval", CACHE_GC_FREQ, "seconds")
+	log.Println("Max.datagram size", maxDatagramSize)
+
+	CACHE = NewCache()
 	SIBLINGS_MANAGER = NewSiblingsManager()
 
 	sig_ch := make(chan os.Signal, 1)
