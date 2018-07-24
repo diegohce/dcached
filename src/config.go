@@ -43,6 +43,7 @@ func readConfig() {
 	sibling_ttl, _   = config.GetInt("siblings/ttl", 5)
 	SIBLING_TTL = int64(sibling_ttl)
 
+	BEACON_INTERFACE, _ = config.GetString("siblings/beacon_interface", "")
 
 	maxDatagramSize, _ = config.GetInt("siblings/max_datagram_size", 128)
 

@@ -21,6 +21,7 @@ var (
 	SIBLINGS_ADDR = "224.0.0.1:9999"
 	BEACON_FREQ time.Duration = 2 //seconds
 	SIBLING_TTL int64 = 5 //seconds
+	BEACON_INTERFACE = ""
 
 	maxDatagramSize = 128
 
@@ -101,7 +102,20 @@ func main() {
 
 	ME, _ = os.Hostname()
 
+	var beacon_interface *net.Interface
+
 	readConfig()
+
+	if BEACON_INTERFACE == "" {
+		beacon_interface = nil
+		BEACON_INTERFACE = "default"
+	} else {
+		var err error
+		beacon_interface, err = net.InterfaceByName(BEACON_INTERFACE)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 
 	log.Println("Starting Dcached", VERSION,"on", ME, "[ port", CACHE_PORT,"]")
 	log.Println("Multicast group", SIBLINGS_ADDR)
@@ -109,6 +123,7 @@ func main() {
 	log.Println("Sublings TTL", SIBLING_TTL, "seconds")
 	log.Println("Garbage collector interval", CACHE_GC_FREQ, "seconds")
 	log.Println("Max.datagram size", maxDatagramSize)
+	log.Println("Beacon network interface", BEACON_INTERFACE)
 
 	CACHE = NewCache()
 	SIBLINGS_MANAGER = NewSiblingsManager()
@@ -119,7 +134,8 @@ func main() {
 	go exportcache(sig_ch)
 
 	go udpBeacon()
-	go serveMulticastUDP(SIBLINGS_ADDR, nil, SIBLINGS_MANAGER.MsgHandler)
+	go serveMulticastUDP(SIBLINGS_ADDR, beacon_interface, SIBLINGS_MANAGER.MsgHandler)
+	//go serveMulticastUDP(SIBLINGS_ADDR, nil, SIBLINGS_MANAGER.MsgHandler)
 
     router := httprouter.New()
 

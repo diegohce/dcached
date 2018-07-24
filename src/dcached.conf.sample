@@ -1,7 +1,7 @@
 cache:
   ip: "" #leave blank
   port: "8080" #listen port for cache service.
-  gc_freq: 3600 #seconds
+  gc_freq: 3600 #seconds, cache subsystem garbage collector
 
 
 siblings:
@@ -9,5 +9,6 @@ siblings:
   beacon_freq: 2 #seconds
   max_datagram_size: 128 #bytes, hostname MUST fit here.
   ttl: 5 #seconds, time to expire siblings registrar.
+  beacon_interface: "" #Network interface to use to send the multicast beacon
 
 
