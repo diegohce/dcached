@@ -10,7 +10,7 @@ func CacheGetDoc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 	doc := `{
 	"POST": {
-		"description": "Retrieves value from dcached cluster",
+		"description": "Returns value from dcached cluster",
 		"parameters": {
 			"appname": {
 				"type": "string",
@@ -37,7 +37,7 @@ func CacheSetDoc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 	doc := `{
 	"POST": {
-		"description": "Stores value to dcached cluster",
+		"description": "Stores value into dcached cluster",
 		"parameters": {
 			"appname": {
 				"type": "string",
@@ -112,7 +112,7 @@ func CacheRemoveDoc(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 	} else if cache_block == "all" {
 		doc = `{
 	"POST": {
-		"description": "Erase dcached cluster (all nodes)",
+		"description": "Wipes dcached cluster (all nodes)",
 		"parameters": {
 			"appname": {
 				"type": "string",
@@ -169,7 +169,7 @@ func CacheStatsHandlerDoc(w http.ResponseWriter, r *http.Request, ps httprouter.
 	} else if stats_type == "all" {
 		doc = `{
 	"GET": {
-		"description": "Returs statistics from the whole cluster",
+		"description": "Returns statistics from the whole cluster",
 		"parameters": {}
 	}
 }`
