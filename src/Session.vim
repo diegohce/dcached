@@ -82,7 +82,6 @@ set runtimepath=~/.vim,/var/lib/vim/addons,/usr/share/vim/vimfiles,/usr/share/vi
 set shiftwidth=4
 set suffixes=.bak,~,.swp,.o,.info,.aux,.log,.dvi,.bbl,.blg,.brf,.cb,.ind,.idx,.ilg,.inx,.out,.toc
 set tabstop=4
-set window=60
 let s:so_save = &so | let s:siso_save = &siso | set so=0 siso=0
 let v:this_session=expand("<sfile>:p")
 silent only
@@ -93,16 +92,18 @@ endif
 set shortmess=aoO
 badd +46 dcached.go
 badd +132 cache.go
-badd +20 request_handlers.go
+badd +346 request_handlers.go
 badd +1 siblings.go
 badd +22 chs.go
 badd +40 requests_stats.go
 badd +1 request_stats.go
 badd +1 request_import.go
-badd +25 Makefile
-badd +0 config.go
+badd +2 Makefile
+badd +1 config.go
 badd +14 myconfig.yml
 badd +14 dcached.conf
+badd +0 request_errors.go
+badd +0 request_doc.go
 argglobal
 silent! argdel *
 argadd dcached.go
@@ -223,12 +224,12 @@ setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
 silent! normal! zE
-let s:l = 110 - ((45 * winheight(0) + 32) / 64)
+let s:l = 146 - ((57 * winheight(0) + 29) / 59)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-110
-normal! 070|
+146
+normal! 0
 tabedit config.go
 set splitbelow splitright
 set nosplitbelow
@@ -589,7 +590,7 @@ setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
 silent! normal! zE
-let s:l = 90 - ((37 * winheight(0) + 30) / 60)
+let s:l = 90 - ((36 * winheight(0) + 29) / 59)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
@@ -711,7 +712,7 @@ setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
 silent! normal! zE
-let s:l = 60 - ((59 * winheight(0) + 32) / 64)
+let s:l = 60 - ((54 * winheight(0) + 29) / 59)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
@@ -833,11 +834,11 @@ setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
 silent! normal! zE
-let s:l = 80 - ((16 * winheight(0) + 32) / 64)
+let s:l = 262 - ((0 * winheight(0) + 29) / 59)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-80
+262
 normal! 0
 tabedit request_stats.go
 set splitbelow splitright
@@ -955,11 +956,11 @@ setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
 silent! normal! zE
-let s:l = 34 - ((33 * winheight(0) + 32) / 64)
+let s:l = 79 - ((58 * winheight(0) + 29) / 59)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-34
+79
 normal! 0
 tabedit request_import.go
 set splitbelow splitright
@@ -1077,13 +1078,257 @@ setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
 silent! normal! zE
-let s:l = 45 - ((44 * winheight(0) + 32) / 64)
+let s:l = 43 - ((39 * winheight(0) + 29) / 59)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-45
+43
 normal! 08|
-tabnext 2
+tabedit request_errors.go
+set splitbelow splitright
+set nosplitbelow
+set nosplitright
+wincmd t
+set winheight=1 winwidth=1
+argglobal
+setlocal keymap=
+setlocal noarabic
+setlocal noautoindent
+setlocal backupcopy=
+setlocal nobinary
+setlocal nobreakindent
+setlocal breakindentopt=
+setlocal bufhidden=
+setlocal buflisted
+setlocal buftype=
+setlocal nocindent
+setlocal cinkeys=0{,0},0),:,0#,!^F,o,O,e
+setlocal cinoptions=
+setlocal cinwords=if,else,while,do,for,switch
+setlocal colorcolumn=
+setlocal comments=s1:/*,mb:*,ex:*/,://,b:#,:%,:XCOMM,n:>,fb:-
+setlocal commentstring=/*%s*/
+setlocal complete=.,w,b,u,t,i
+setlocal concealcursor=
+setlocal conceallevel=0
+setlocal completefunc=
+setlocal nocopyindent
+setlocal cryptmethod=
+setlocal nocursorbind
+setlocal nocursorcolumn
+setlocal nocursorline
+setlocal define=
+setlocal dictionary=
+setlocal nodiff
+setlocal equalprg=
+setlocal errorformat=
+setlocal noexpandtab
+if &filetype != 'go'
+setlocal filetype=go
+endif
+setlocal fixendofline
+setlocal foldcolumn=0
+setlocal foldenable
+setlocal foldexpr=0
+setlocal foldignore=#
+setlocal foldlevel=0
+setlocal foldmarker={{{,}}}
+setlocal foldmethod=manual
+setlocal foldminlines=1
+setlocal foldnestmax=20
+setlocal foldtext=foldtext()
+setlocal formatexpr=
+setlocal formatoptions=tcq
+setlocal formatlistpat=^\\s*\\d\\+[\\]:.)}\\t\ ]\\s*
+setlocal grepprg=
+setlocal iminsert=0
+setlocal imsearch=0
+setlocal include=
+setlocal includeexpr=
+setlocal indentexpr=
+setlocal indentkeys=0{,0},:,0#,!^F,o,O,e
+setlocal noinfercase
+setlocal iskeyword=@,48-57,_,192-255
+setlocal keywordprg=
+setlocal nolinebreak
+setlocal nolisp
+setlocal lispwords=
+setlocal nolist
+setlocal makeprg=
+setlocal matchpairs=(:),{:},[:]
+setlocal nomodeline
+setlocal modifiable
+setlocal nrformats=bin,octal,hex
+set number
+setlocal number
+setlocal numberwidth=4
+setlocal omnifunc=
+setlocal path=
+setlocal nopreserveindent
+setlocal nopreviewwindow
+setlocal quoteescape=\\
+setlocal noreadonly
+setlocal norelativenumber
+setlocal norightleft
+setlocal rightleftcmd=search
+setlocal noscrollbind
+setlocal shiftwidth=4
+setlocal noshortname
+setlocal signcolumn=auto
+setlocal nosmartindent
+setlocal softtabstop=0
+setlocal nospell
+setlocal spellcapcheck=[.?!]\\_[\\])'\"\	\ ]\\+
+setlocal spellfile=
+setlocal spelllang=en
+setlocal statusline=
+setlocal suffixesadd=
+setlocal swapfile
+setlocal synmaxcol=3000
+if &syntax != 'go'
+setlocal syntax=go
+endif
+setlocal tabstop=4
+setlocal tagcase=
+setlocal tags=
+setlocal textwidth=0
+setlocal thesaurus=
+setlocal noundofile
+setlocal undolevels=-123456
+setlocal nowinfixheight
+setlocal nowinfixwidth
+setlocal wrap
+setlocal wrapmargin=0
+silent! normal! zE
+let s:l = 23 - ((22 * winheight(0) + 29) / 59)
+if s:l < 1 | let s:l = 1 | endif
+exe s:l
+normal! zt
+23
+normal! 0
+tabedit request_doc.go
+set splitbelow splitright
+set nosplitbelow
+set nosplitright
+wincmd t
+set winheight=1 winwidth=1
+argglobal
+setlocal keymap=
+setlocal noarabic
+setlocal noautoindent
+setlocal backupcopy=
+setlocal nobinary
+setlocal nobreakindent
+setlocal breakindentopt=
+setlocal bufhidden=
+setlocal buflisted
+setlocal buftype=
+setlocal nocindent
+setlocal cinkeys=0{,0},0),:,0#,!^F,o,O,e
+setlocal cinoptions=
+setlocal cinwords=if,else,while,do,for,switch
+setlocal colorcolumn=
+setlocal comments=s1:/*,mb:*,ex:*/,://,b:#,:%,:XCOMM,n:>,fb:-
+setlocal commentstring=/*%s*/
+setlocal complete=.,w,b,u,t,i
+setlocal concealcursor=
+setlocal conceallevel=0
+setlocal completefunc=
+setlocal nocopyindent
+setlocal cryptmethod=
+setlocal nocursorbind
+setlocal nocursorcolumn
+setlocal nocursorline
+setlocal define=
+setlocal dictionary=
+setlocal nodiff
+setlocal equalprg=
+setlocal errorformat=
+setlocal noexpandtab
+if &filetype != 'go'
+setlocal filetype=go
+endif
+setlocal fixendofline
+setlocal foldcolumn=0
+setlocal foldenable
+setlocal foldexpr=0
+setlocal foldignore=#
+setlocal foldlevel=0
+setlocal foldmarker={{{,}}}
+setlocal foldmethod=manual
+setlocal foldminlines=1
+setlocal foldnestmax=20
+setlocal foldtext=foldtext()
+setlocal formatexpr=
+setlocal formatoptions=tcq
+setlocal formatlistpat=^\\s*\\d\\+[\\]:.)}\\t\ ]\\s*
+setlocal grepprg=
+setlocal iminsert=0
+setlocal imsearch=0
+setlocal include=
+setlocal includeexpr=
+setlocal indentexpr=
+setlocal indentkeys=0{,0},:,0#,!^F,o,O,e
+setlocal noinfercase
+setlocal iskeyword=@,48-57,_,192-255
+setlocal keywordprg=
+setlocal nolinebreak
+setlocal nolisp
+setlocal lispwords=
+setlocal nolist
+setlocal makeprg=
+setlocal matchpairs=(:),{:},[:]
+setlocal nomodeline
+setlocal modifiable
+setlocal nrformats=bin,octal,hex
+set number
+setlocal number
+setlocal numberwidth=4
+setlocal omnifunc=
+setlocal path=
+setlocal nopreserveindent
+setlocal nopreviewwindow
+setlocal quoteescape=\\
+setlocal noreadonly
+setlocal norelativenumber
+setlocal norightleft
+setlocal rightleftcmd=search
+setlocal noscrollbind
+setlocal shiftwidth=4
+setlocal noshortname
+setlocal signcolumn=auto
+setlocal nosmartindent
+setlocal softtabstop=0
+setlocal nospell
+setlocal spellcapcheck=[.?!]\\_[\\])'\"\	\ ]\\+
+setlocal spellfile=
+setlocal spelllang=en
+setlocal statusline=
+setlocal suffixesadd=
+setlocal swapfile
+setlocal synmaxcol=3000
+if &syntax != 'go'
+setlocal syntax=go
+endif
+setlocal tabstop=4
+setlocal tagcase=
+setlocal tags=
+setlocal textwidth=0
+setlocal thesaurus=
+setlocal noundofile
+setlocal undolevels=-123456
+setlocal nowinfixheight
+setlocal nowinfixwidth
+setlocal wrap
+setlocal wrapmargin=0
+silent! normal! zE
+let s:l = 160 - ((25 * winheight(0) + 29) / 59)
+if s:l < 1 | let s:l = 1 | endif
+exe s:l
+normal! zt
+160
+normal! 0
+tabnext 9
 set stal=1
 if exists('s:wipebuf')
   silent exe 'bwipe ' . s:wipebuf

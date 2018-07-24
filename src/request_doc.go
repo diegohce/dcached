@@ -26,6 +26,7 @@ func CacheGetDoc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 }`
 
+	w.Header().Set("Allow", "POST,OPTIONS")
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, "%s", doc)
 
@@ -62,6 +63,7 @@ func CacheSetDoc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 }`
 
+	w.Header().Set("Allow", "POST,OPTIONS")
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, "%s", doc)
 
@@ -127,6 +129,7 @@ func CacheRemoveDoc(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 	}
 
 
+	w.Header().Set("Allow", "POST,OPTIONS")
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, "%s", doc)
 
@@ -141,6 +144,7 @@ func CacheImportDoc(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 	}
 }`
 
+	w.Header().Set("Allow", "POST,OPTIONS")
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, "%s", doc)
 
@@ -177,6 +181,7 @@ func CacheStatsHandlerDoc(w http.ResponseWriter, r *http.Request, ps httprouter.
 	}
 
 
+	w.Header().Set("Allow", "GET,OPTIONS")
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, "%s", doc)
 

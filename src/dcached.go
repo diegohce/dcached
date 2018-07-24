@@ -122,10 +122,23 @@ func main() {
 	go serveMulticastUDP(SIBLINGS_ADDR, nil, SIBLINGS_MANAGER.MsgHandler)
 
     router := httprouter.New()
+
+	router.NotFound = NotFoundHandler{}
+	router.MethodNotAllowed = MethodNotAllowedHandler{}
+
     router.POST("/"+CACHE_GET_URL, CacheGet)
+    router.OPTIONS("/"+CACHE_GET_URL, CacheGetDoc)
+
     router.POST("/"+CACHE_SET_URL, CacheSet)
+    router.OPTIONS("/"+CACHE_SET_URL, CacheSetDoc)
+
+    router.OPTIONS("/"+CACHE_REMOVE_URL, CacheRemoveDoc)
     router.POST("/"+CACHE_REMOVE_URL, CacheRemove)
+
+    router.OPTIONS("/"+CACHE_STATS_URL, CacheStatsHandlerDoc)
     router.GET("/"+CACHE_STATS_URL, CacheStatsHandler)
+
+    router.OPTIONS("/"+CACHE_IMPORT_URL, CacheImportDoc)
     router.POST("/"+CACHE_IMPORT_URL, CacheImport)
 
     log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%s", CACHE_IP, CACHE_PORT), router))

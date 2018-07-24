@@ -1,5 +1,5 @@
 GOOS=linux
-GOFILES=dcached.go config.go cache.go siblings.go request_handlers.go request_stats.go request_import.go
+GOFILES=dcached.go config.go cache.go siblings.go request_handlers.go request_stats.go request_import.go request_errors.go request_doc.go
 VERSION=0.1.0
 BINARY_NAME=dcached
 
