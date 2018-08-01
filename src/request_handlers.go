@@ -71,7 +71,8 @@ func (e *ExceptionResponse) String() string {
 
 func (e *ExceptionResponse) Write(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
+	w.WriteHeader(666)
+
 	fmt.Fprintf(w, "%s", e)
 }
 
