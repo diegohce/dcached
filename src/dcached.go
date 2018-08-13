@@ -120,7 +120,7 @@ func main() {
 	log.Println("Starting Dcached", VERSION,"on", ME, "[ port", CACHE_PORT,"]")
 	log.Println("Multicast group", SIBLINGS_ADDR)
 	log.Println("Beacon interval", int(BEACON_FREQ), "seconds")
-	log.Println("Sublings TTL", SIBLING_TTL, "seconds")
+	log.Println("Siblings TTL", SIBLING_TTL, "seconds")
 	log.Println("Garbage collector interval", CACHE_GC_FREQ, "seconds")
 	log.Println("Max.datagram size", maxDatagramSize)
 	log.Println("Beacon network interface", BEACON_INTERFACE)
