@@ -159,7 +159,7 @@ func CacheSet(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 				key: sr.Key }
 
 	writeop := &writeOp {
-				done: make(chan bool),
+				//done: make(chan bool),
 				app: sr.AppName,
 				key: sr.Key,
 				val: sr.Value,
@@ -176,7 +176,7 @@ func CacheSet(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		log.Printf("request::set %s::%s is mine. Updating storage unit\n", sr.AppName, sr.Key)
 		//LOCAL WRITE
 		CACHE.Writes <-writeop
-		<-writeop.done
+		//<-writeop.done
 
 	} else { //KEY IS NOT MINE, ASK SIBLINGS
 		log.Printf("request::set %s::%s is not mine\n", sr.AppName, sr.Key)
@@ -194,7 +194,7 @@ func CacheSet(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 			log.Printf("request::set nobody has %s::%s\n", writeop.app, writeop.key)
 			//LOCAL WRITE
 			CACHE.Writes <-writeop
-			<-writeop.done
+			//<-writeop.done
 			log.Printf("request::set %s::%s stored\n", writeop.app, writeop.key)
 		}
 	}
