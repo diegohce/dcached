@@ -100,7 +100,7 @@ func NewCache() *Cache {
 				case write := <-c.Writes:
 				{
 					c.set(write.app, write.key, write.val, write.ttl)
-					write.done <- true
+					//write.done <- true
 				}
 				case removek := <-c.RemoveKey:
 				{
