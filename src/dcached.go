@@ -29,6 +29,8 @@ var (
 	CACHE_PORT = "8080"
 	CACHE_GC_FREQ = 3600
 
+	CACHE_MODE = "standalone"
+
 	CACHE_GET_URL = "cache/get"
 	CACHE_SET_URL = "cache/set"
 	CACHE_REMOVE_URL = "cache/remove/:cache_block"
@@ -117,13 +119,15 @@ func main() {
 		}
 	}
 
-	log.Println("Starting Dcached", VERSION,"on", ME, "[ port", CACHE_PORT,"]")
-	log.Println("Multicast group", SIBLINGS_ADDR)
-	log.Println("Beacon interval", int(BEACON_FREQ), "seconds")
-	log.Println("Siblings TTL", SIBLING_TTL, "seconds")
+	log.Println("Starting Dcached", VERSION,"on", ME, "[ port", CACHE_PORT,"]", CACHE_MODE, "mode")
+	if CACHE_MODE == "cluster" {
+		log.Println("Multicast group", SIBLINGS_ADDR)
+		log.Println("Beacon interval", int(BEACON_FREQ), "seconds")
+		log.Println("Siblings TTL", SIBLING_TTL, "seconds")
+		log.Println("Max.datagram size", maxDatagramSize)
+		log.Println("Beacon network interface", BEACON_INTERFACE)
+	}
 	log.Println("Garbage collector interval", CACHE_GC_FREQ, "seconds")
-	log.Println("Max.datagram size", maxDatagramSize)
-	log.Println("Beacon network interface", BEACON_INTERFACE)
 
 	CACHE = NewCache()
 	SIBLINGS_MANAGER = NewSiblingsManager()
@@ -131,11 +135,15 @@ func main() {
 	sig_ch := make(chan os.Signal, 1)
 	signal.Notify(sig_ch, os.Interrupt)
 	signal.Notify(sig_ch, syscall.SIGTERM)
+
 	go exportcache(sig_ch)
 
-	go udpBeacon()
-	go serveMulticastUDP(SIBLINGS_ADDR, beacon_interface, SIBLINGS_MANAGER.MsgHandler)
-	//go serveMulticastUDP(SIBLINGS_ADDR, nil, SIBLINGS_MANAGER.MsgHandler)
+	if CACHE_MODE == "cluster" {
+
+		go udpBeacon()
+		go serveMulticastUDP(SIBLINGS_ADDR, beacon_interface, SIBLINGS_MANAGER.MsgHandler)
+		//go serveMulticastUDP(SIBLINGS_ADDR, nil, SIBLINGS_MANAGER.MsgHandler)
+	}
 
     router := httprouter.New()
 

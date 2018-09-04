@@ -2,7 +2,7 @@ cache:
   ip: "" #leave blank
   port: "8080" #listen port for cache service.
   gc_freq: 3600 #seconds, cache subsystem garbage collector
-
+  mode: "standalone" # "cluster"
 
 siblings:
   address: "224.0.0.1:9999" #multicast group.

@@ -51,6 +51,8 @@ func readConfig() {
 	CACHE_PORT, _    = config.GetString("cache/port", "8080")
 	CACHE_GC_FREQ, _ = config.GetInt("cache/gc_freq", 3600)
 
+	CACHE_MODE, _    = config.GetString("cache/mode", "standalone")
+
 }
 
 
