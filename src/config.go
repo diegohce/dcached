@@ -14,13 +14,23 @@ import (
 
 func readConfig() {
 
-	f, err := os.Open("dcached.conf")
+	f, err := os.Open("/etc/dcached.conf")
 	if err != nil {
 		log.Println("config::readConfig", err)
-		log.Println("config::readConfig Will use default values")
-		return
+		log.Println("config::readConfig Will try ./dcached.conf")
+	}
+
+
+	if f == nil {
+		f, err = os.Open("dcached.conf")
+		if err != nil {
+			log.Println("config::readConfig", err)
+			log.Println("config::readConfig Will use default values")
+			return
+		}
 	}
 	defer f.Close()
+
 
 	config, err := gonfig.FromYml(f)
 	if err != nil {
