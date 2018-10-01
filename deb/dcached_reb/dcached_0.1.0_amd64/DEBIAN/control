@@ -1,0 +1,10 @@
+Package: dcached
+Architecture: amd64
+Maintainer: Diego Cena <diego.cena@gmail.com>
+Priority: optional
+Version: 0.1.0
+Description: Distributed masterless cache server cluster.
+ dcached is a distributed masterless cache server cluster. It may also run as a standalone node.
+ See https://github.com/diegohce/dcached/blob/master/README.md for more.
+
+

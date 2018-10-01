@@ -1,0 +1,46 @@
+#!/bin/bash
+
+### BEGIN INIT INFO
+# Provides:          dcached
+# Required-Start:    $all
+# Required-Stop:     
+# Should-Start:      
+# Should-Stop:       
+# X-Start-Before:    
+# X-Stop-After:      
+# Default-Start:     2
+# Default-Stop:      0 1 6
+# X-Interactive:     false
+# Short-Description: dcached: distributed masterless cache cluster.
+### END INIT INFO
+
+
+do_start() {
+	/opt/dcached/dcached.start >> /var/log/dcached.log 2>&1
+	sleep 1
+}
+
+do_stop() {
+	/opt/dcached/dcached.stop >> /var/log/dcached.log 2>&1
+	sleep 1
+}
+
+
+case "$1" in 
+	start)
+		do_start
+	;;
+	stop)
+		do_stop
+	;;
+	restart)
+		do_stop
+		do_start
+	;;
+	*)
+		echo "usage: $0 [start|stop]"
+		exit 1
+	;;
+esac
+
+
