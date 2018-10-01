@@ -1,6 +1,0 @@
-#!/bin/bash
-
-service dcached stop
-sleep 1
-
-

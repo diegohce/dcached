@@ -1,9 +1,0 @@
-#!/bin/bash
-
-ln -s /opt/dcached/bin/dcached /usr/local/bin/dcached
-ln -s /opt/dcached/dcached /etc/init.d/dcached
-
-
-update-rc.d dcached defaults
-
-
