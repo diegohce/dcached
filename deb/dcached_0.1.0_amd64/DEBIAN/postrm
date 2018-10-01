@@ -1,0 +1,6 @@
+#!/bin/bash
+
+update-rc.d dcached remove
+
+rm -f /usr/local/bin/dcached /etc/init.d/dcached 
+

@@ -1,0 +1,19 @@
+#!/bin/bash
+
+. /etc/default/dcached
+
+if [ $ENABLED == "0" ]; then
+	exit 0
+fi
+
+PIDS_DIR="/var/run"
+LOGS_DIR="/var/log"
+BINARY="/opt/dcached/bin/dcached"
+
+mkdir -p $PIDS_DIR
+#mkdir -p $LOGS_DIR
+
+$BINARY >> "$LOGS_DIR/dcached.log" 2>&1 &
+echo $! > "$PIDS_DIR/dcached.pid"
+
+
