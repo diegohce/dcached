@@ -3,7 +3,7 @@
 [![GPLv3 license](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/diegohce/dcached/blob/master/LICENSE)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/diegohce/dcached/graphs/commit-activity)
 [![HitCount](http://hits.dwyl.io/diegohce/dcached.svg)](http://hits.dwyl.io/diegohce/dcached)
-
+[![Generic badge](https://img.shields.io/badge/deb%20package-yes-green.svg)](https://github.com/diegohce/dcached/releases/)
 
 dcached(1)
 
