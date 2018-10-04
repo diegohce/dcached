@@ -1,3 +1,10 @@
+[![GitHub release](https://img.shields.io/github/release/diegohce/dcached.svg)](https://github.com/diegohce/dcached/releases/)
+[![Github all releases](https://img.shields.io/github/downloads/diegohce/dcached/total.svg)](https://github.com/diegohce/dcached/releases/)
+[![GPLv3 license](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/diegohce/dcached/blob/master/LICENSE)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/diegohce/dcached/graphs/commit-activity)
+[![HitCount](http://hits.dwyl.io/diegohce/dcached.svg)](http://hits.dwyl.io/diegohce/dcached)
+
+
 dcached(1)
 
 # NAME
