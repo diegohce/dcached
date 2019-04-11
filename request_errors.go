@@ -1,23 +1,24 @@
 package main
 
 import (
-    "net/http"
+	"net/http"
 )
 
-type NotFoundHandler struct {
-}
-func (h NotFoundHandler) ServeHTTP(w http.ResponseWriter,r *http.Request) {
-
-	e := NewException("ResourceNotFoundException", "Resource not found")
-	e.Write(w)
-
+type notFoundHandler struct {
 }
 
-type MethodNotAllowedHandler struct {}
+func (h notFoundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
-func (h MethodNotAllowedHandler) ServeHTTP(w http.ResponseWriter,r *http.Request) {
+	e := newException("ResourceNotFoundException", "Resource not found")
+	e.write(w)
 
-	e := NewException("MethodNotAllowedException", "Method not allowed")
-	e.Write(w)
+}
+
+type methodNotAllowedHandler struct{}
+
+func (h methodNotAllowedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+
+	e := newException("MethodNotAllowedException", "Method not allowed")
+	e.write(w)
 
 }

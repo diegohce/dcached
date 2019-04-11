@@ -1,79 +1,77 @@
 package main
 
 import (
-    "fmt"
-	"log"
-	"time"
-    "net/http"
 	"encoding/json"
-    "github.com/julienschmidt/httprouter"
+	"fmt"
+	"log"
+	"net/http"
+	"time"
+
+	"github.com/julienschmidt/httprouter"
 )
 
-type StatsAll struct {
+type statsAll struct {
 	TotalBytes int64
-	Nodes []*CacheStats
+	Nodes      []*cacheStats
 }
-func (sta *StatsAll) String() string {
+
+func (sta *statsAll) String() string {
 	b, _ := json.Marshal(sta)
 	return string(b)
 }
-func (sta *StatsAll) Write(w http.ResponseWriter) {
+func (sta *statsAll) write(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 	fmt.Fprintf(w, "%s", sta)
 }
 
-
-func (c *CacheStats) String() string {
+func (c *cacheStats) String() string {
 	b, _ := json.Marshal(c)
 	return string(b)
 }
-func (c *CacheStats) Write(w http.ResponseWriter) {
+func (c *cacheStats) write(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 	fmt.Fprintf(w, "%s", c)
 }
 
-
-func CacheStatsHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func cacheStatsHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	statsop := &statsOp{
 		done: make(chan bool),
 	}
 
-	stats_type := ps.ByName("stats_type")
+	statsType := ps.ByName("stats_type")
 
-	log.Println("request::stats type", stats_type)
+	log.Println("request::stats type", statsType)
 
-	timeit_start := time.Now().UnixNano()
+	timeitStart := time.Now().UnixNano()
 
-	CACHE.CacheStats <-statsop
+	mainCache.CacheStats <- statsop
 	<-statsop.done
 
-	if stats_type == "local" {
-		statsop.stats.Elapsed_ns = time.Now().UnixNano() - timeit_start
-		statsop.stats.Write(w)
+	if statsType == "local" {
+		statsop.stats.ElapsedNs = time.Now().UnixNano() - timeitStart
+		statsop.stats.write(w)
 
-	} else if stats_type == "all" {
-		sta := &StatsAll{}
+	} else if statsType == "all" {
+		sta := &statsAll{}
 		sta.Nodes = append(sta.Nodes, statsop.stats)
 		sta.TotalBytes = statsop.stats.MemBytes
 
-		ch := SIBLINGS_MANAGER.PropagateStats()
+		ch := siblingsMgr.propagateStats()
 		for stat := range ch {
 			if stat != nil {
 				sta.Nodes = append(sta.Nodes, stat)
 				sta.TotalBytes += stat.MemBytes
 			}
 		}
-		statsop.stats.Elapsed_ns = time.Now().UnixNano() - timeit_start
-		sta.Write(w)
-
+		statsop.stats.ElapsedNs = time.Now().UnixNano() - timeitStart
+		sta.write(w)
 
 	} else {
-		e := NewException("ResourceNotFoundException", "Resource not found")
-		e.Write(w)
+		e := newException("ResourceNotFoundException", "Resource not found")
+		e.write(w)
 	}
 
 }
-
