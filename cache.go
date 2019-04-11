@@ -1,13 +1,10 @@
 package main
 
-
-
 import (
 	//"fmt"
 	"log"
 	"time"
 )
-
 
 type readOp struct {
 	app   string
@@ -26,7 +23,6 @@ type writeOp struct {
 	done chan bool
 }
 
-
 type removeOp struct {
 	app   string
 	key   string
@@ -35,28 +31,28 @@ type removeOp struct {
 }
 
 type statsOp struct {
-	stats *CacheStats
+	stats *cacheStats
 	done  chan bool
 }
 
-type StorageUnit struct {
+type storageUnit struct {
 	CreatedAt int64
 	Value     string
 	TTL       int64
 }
 
-type CacheStats struct {
+type cacheStats struct {
 	Node         string    `json:"node"`
-	Nodes        []Sibling `json:"nodes"`
+	Nodes        []sibling `json:"nodes"`
 	Applications []string  `json:"applications"`
 	MemBytes     int64     `json:"mem_bytes"`
-	Elapsed_ns   int64     `json:"elapsed_ns"`
+	ElapsedNs    int64     `json:"elapsed_ns"`
 }
 
-type AppCache map[string]map[string]StorageUnit
+type appCache map[string]map[string]storageUnit
 
-type Cache struct {
-	storage   AppCache
+type cacheOperator struct {
+	storage    appCache
 	Reads      chan *readOp
 	Writes     chan *writeOp
 	RemoveKey  chan *removeOp
@@ -67,68 +63,66 @@ type Cache struct {
 	GcTimer    *time.Ticker
 }
 
-
-
 /*func init() {
 	CACHE = NewCache()
 }
 */
 
-func NewCache() *Cache {
+func newCache() *cacheOperator {
 
-	c := &Cache{storage: AppCache{},
-		Reads: make(chan *readOp),
-        Writes: make(chan *writeOp),
-		RemoveKey: make(chan *removeOp),
-		RemoveApp: make(chan *removeOp),
-		RemoveAll: make(chan *removeOp),
+	c := &cacheOperator{storage: appCache{},
+		Reads:      make(chan *readOp),
+		Writes:     make(chan *writeOp),
+		RemoveKey:  make(chan *removeOp),
+		RemoveApp:  make(chan *removeOp),
+		RemoveAll:  make(chan *removeOp),
 		CacheStats: make(chan *statsOp),
-        Imports: make(chan *writeOp),
-		GcTimer: time.NewTicker(time.Duration(CACHE_GC_FREQ) * time.Second),
-	 }
+		Imports:    make(chan *writeOp),
+		GcTimer:    time.NewTicker(time.Duration(cacheGCFreq) * time.Second),
+	}
 
-	go func(){
+	go func() {
 		for {
 			select {
-				case read := <-c.Reads:
+			case read := <-c.Reads:
 				{
 					log.Println("cache::readop", read)
 					read.val, read.found = c.get(read.app, read.key)
 					read.done <- true
 					log.Println("cache::readop", read, "done")
 				}
-				case write := <-c.Writes:
+			case write := <-c.Writes:
 				{
 					c.set(write.app, write.key, write.val, write.ttl)
 					//write.done <- true
 				}
-				case removek := <-c.RemoveKey:
+			case removek := <-c.RemoveKey:
 				{
 					removek.found = c.removeKey(removek.app, removek.key)
 					removek.done <- true
 				}
-				case removea := <-c.RemoveApp:
+			case removea := <-c.RemoveApp:
 				{
 					removea.found = c.removeApp(removea.app)
 					removea.done <- true
 				}
-				case removeall := <-c.RemoveAll:
+			case removeall := <-c.RemoveAll:
 				{
 					c.removeAll()
 					removeall.done <- true
 				}
-				case stats := <-c.CacheStats:
+			case stats := <-c.CacheStats:
 				{
 					stats.stats = c.stats()
 					stats.done <- true
 				}
-				case importf := <-c.Imports:
+			case importf := <-c.Imports:
 				{
 					c.importForeign(importf)
 					//importf.done <- true
 				}
-				case <-c.GcTimer.C:
-					c.gc()
+			case <-c.GcTimer.C:
+				c.gc()
 			}
 		}
 	}()
@@ -136,24 +130,23 @@ func NewCache() *Cache {
 	return c
 }
 
+func (c *cacheOperator) set(appname, key, value string, ttl int64) {
 
-func (c *Cache) set(appname, key, value string, ttl int64) {
-
-	su := StorageUnit {
+	su := storageUnit{
 		CreatedAt: time.Now().Unix(),
-		Value: value,
-		TTL: ttl }
+		Value:     value,
+		TTL:       ttl}
 
 	_, ok := c.storage[appname]
 	if !ok {
-		c.storage[appname] = map[string]StorageUnit{}
+		c.storage[appname] = map[string]storageUnit{}
 	}
 
 	c.storage[appname][key] = su
 
 }
 
-func (c *Cache) get(appname, key string) (string, bool) {
+func (c *cacheOperator) get(appname, key string) (string, bool) {
 
 	cache, ok := c.storage[appname]
 	if !ok {
@@ -165,7 +158,7 @@ func (c *Cache) get(appname, key string) (string, bool) {
 		return "", ok
 	}
 
-	if time.Now().Unix() - su.CreatedAt >= su.TTL {
+	if time.Now().Unix()-su.CreatedAt >= su.TTL {
 		delete(c.storage[appname], key)
 		return "", false
 	}
@@ -173,7 +166,7 @@ func (c *Cache) get(appname, key string) (string, bool) {
 	return su.Value, ok
 }
 
-func (c *Cache) removeKey(appname, key string) bool {
+func (c *cacheOperator) removeKey(appname, key string) bool {
 
 	cache, ok := c.storage[appname]
 	if !ok {
@@ -189,8 +182,7 @@ func (c *Cache) removeKey(appname, key string) bool {
 	return true
 }
 
-
-func (c *Cache) removeApp(appname string) bool {
+func (c *cacheOperator) removeApp(appname string) bool {
 
 	_, ok := c.storage[appname]
 	if !ok {
@@ -201,20 +193,21 @@ func (c *Cache) removeApp(appname string) bool {
 	return true
 }
 
-func (c *Cache) removeAll() {
+func (c *cacheOperator) removeAll() {
 
-	for app, _ := range c.storage {
+	//for app, _ := range c.storage {
+	for app := range c.storage {
 		delete(c.storage, app)
 	}
 }
 
-func (c *Cache) gc() {
+func (c *cacheOperator) gc() {
 
 	log.Println("cache::Starting GC")
 
 	for app, cache := range c.storage {
-		for k , su := range cache {
-			if time.Now().Unix() - su.CreatedAt > su.TTL {
+		for k, su := range cache {
+			if time.Now().Unix()-su.CreatedAt > su.TTL {
 				delete(c.storage[app], k)
 				log.Printf("cache::GC %s->%s has been killed", app, k)
 			}
@@ -226,17 +219,17 @@ func (c *Cache) gc() {
 	log.Println("cache::GC finished")
 }
 
-func (c *Cache) stats() *CacheStats {
+func (c *cacheOperator) stats() *cacheStats {
 
-	cs := &CacheStats{
-		Node:  ME,
-		Nodes: SIBLINGS_MANAGER.GetSiblings(),
+	cs := &cacheStats{
+		Node:     ME,
+		Nodes:    siblingsMgr.getSiblings(),
 		MemBytes: 0,
 	}
 
 	for app, cache := range c.storage {
 		cs.Applications = append(cs.Applications, app)
-		for k , su := range cache {
+		for k, su := range cache {
 			cs.MemBytes += int64(len(k)) + int64(len(su.Value))
 
 		}
@@ -245,7 +238,7 @@ func (c *Cache) stats() *CacheStats {
 	return cs
 }
 
-type ExportUnit struct {
+type exportUnit struct {
 	AppName   string `json:"appname"`
 	CreatedAt int64  `json:"created_at"`
 	Key       string `json:"key"`
@@ -253,39 +246,36 @@ type ExportUnit struct {
 	TTL       int64  `json:"ttl"`
 }
 
-func (c *Cache) contentExporter(ch chan *ExportUnit) {
+func (c *cacheOperator) contentExporter(ch chan *exportUnit) {
 
 	for app, cache := range c.storage {
-		for k , su := range cache {
-			eu := &ExportUnit{
-				AppName: app,
+		for k, su := range cache {
+			eu := &exportUnit{
+				AppName:   app,
 				CreatedAt: su.CreatedAt,
-				Key: k,
-				Value: su.Value,
-				TTL: su.TTL,
+				Key:       k,
+				Value:     su.Value,
+				TTL:       su.TTL,
 			}
 			delete(c.storage[app], k)
-			ch <-eu
+			ch <- eu
 			log.Printf("cache::export %+v ready to export\n", eu)
 		}
 	}
 	close(ch)
 }
 
-func (c *Cache) importForeign(wop *writeOp) {
-	su := StorageUnit {
+func (c *cacheOperator) importForeign(wop *writeOp) {
+	su := storageUnit{
 		CreatedAt: wop.ct,
-		Value: wop.val,
-		TTL: wop.ttl,
-	 }
+		Value:     wop.val,
+		TTL:       wop.ttl,
+	}
 
 	_, ok := c.storage[wop.app]
 	if !ok {
-		c.storage[wop.app] = map[string]StorageUnit{}
+		c.storage[wop.app] = map[string]storageUnit{}
 	}
 
 	c.storage[wop.app][wop.key] = su
 }
-
-
-

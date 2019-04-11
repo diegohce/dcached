@@ -1,16 +1,12 @@
 package main
 
-
 import (
-	"github.com/creamdog/gonfig"
-	"os"
 	"log"
+	"os"
 	"time"
+
+	"github.com/creamdog/gonfig"
 )
-
-
-
-
 
 func readConfig() {
 
@@ -19,7 +15,6 @@ func readConfig() {
 		log.Println("config::readConfig", err)
 		log.Println("config::readConfig Will try ./dcached.conf")
 	}
-
 
 	if f == nil {
 		f, err = os.Open("dcached.conf")
@@ -31,7 +26,6 @@ func readConfig() {
 	}
 	defer f.Close()
 
-
 	config, err := gonfig.FromYml(f)
 	if err != nil {
 		log.Println("config::readConfig", err)
@@ -40,30 +34,26 @@ func readConfig() {
 	}
 
 	var (
-		sibling_ttl int
-		beacon_freq int
+		sTTL  int
+		bFreq int
 	)
 
+	siblingsAddr, _ = config.GetString("siblings/address", "224.0.0.1:9999")
 
-	SIBLINGS_ADDR, _ = config.GetString("siblings/address", "224.0.0.1:9999")
+	bFreq, _ = config.GetInt("siblings/beacon_freq", 2)
+	beaconFreq = time.Duration(bFreq)
 
-	beacon_freq, _   = config.GetInt("siblings/beacon_freq", 2)
-	BEACON_FREQ = time.Duration(beacon_freq)
+	sTTL, _ = config.GetInt("siblings/ttl", 5)
+	siblingTTL = int64(sTTL)
 
-	sibling_ttl, _   = config.GetInt("siblings/ttl", 5)
-	SIBLING_TTL = int64(sibling_ttl)
-
-	BEACON_INTERFACE, _ = config.GetString("siblings/beacon_interface", "")
+	beaconInterface, _ = config.GetString("siblings/beacon_interface", "")
 
 	maxDatagramSize, _ = config.GetInt("siblings/max_datagram_size", 128)
 
-	CACHE_IP, _      = config.GetString("cache/ip", "")
-	CACHE_PORT, _    = config.GetString("cache/port", "8080")
-	CACHE_GC_FREQ, _ = config.GetInt("cache/gc_freq", 3600)
+	cacheIP, _ = config.GetString("cache/ip", "")
+	cachePort, _ = config.GetString("cache/port", "8080")
+	cacheGCFreq, _ = config.GetInt("cache/gc_freq", 3600)
 
-	CACHE_MODE, _    = config.GetString("cache/mode", "standalone")
+	cacheMode, _ = config.GetString("cache/mode", "standalone")
 
 }
-
-
-

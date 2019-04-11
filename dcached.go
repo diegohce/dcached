@@ -2,58 +2,59 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"syscall"
-	"os/signal"
-    "github.com/julienschmidt/httprouter"
+	"log"
 	"net"
-    "net/http"
-    "log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
+
+	"github.com/julienschmidt/httprouter"
 	//"encoding/hex"
 )
 
 var (
+	// VERSION My current version
 	VERSION = "0.0.0"
 )
 
 var (
-	SIBLINGS_ADDR = "224.0.0.1:9999"
-	BEACON_FREQ time.Duration = 2 //seconds
-	SIBLING_TTL int64 = 5 //seconds
-	BEACON_INTERFACE = ""
+	siblingsAddr                  = "224.0.0.1:9999"
+	beaconFreq      time.Duration = 2 //seconds
+	siblingTTL      int64         = 5 //seconds
+	beaconInterface               = ""
 
 	maxDatagramSize = 128
 
-	CACHE_IP = ""
-	CACHE_PORT = "8080"
-	CACHE_GC_FREQ = 3600
+	cacheIP     = ""
+	cachePort   = "8080"
+	cacheGCFreq = 3600
 
-	CACHE_MODE = "standalone"
+	cacheMode = "standalone"
 
-	CACHE_GET_URL = "cache/get"
-	CACHE_SET_URL = "cache/set"
-	CACHE_REMOVE_URL = "cache/remove/:cache_block"
-	CACHE_REMOVE_KEY_URL = "cache/remove/key"
-	CACHE_REMOVE_APP_URL = "cache/remove/application"
-	CACHE_REMOVE_ALL_URL = "cache/remove/all"
-	CACHE_STATS_URL = "cache/stats/:stats_type"
-	CACHE_STATS_LOCAL_URL = "cache/stats/local"
-	CACHE_STATS_ALL_URL = "cache/stats/all"
-	CACHE_IMPORT_URL = "cache/import"
+	cacheGetURL        = "cache/get"
+	cacheSetURL        = "cache/set"
+	cacheRemoveURL     = "cache/remove/:cache_block"
+	cacheRemoveKeyURL  = "cache/remove/key"
+	cacheRemoveAppURL  = "cache/remove/application"
+	cacheRemoveAllURL  = "cache/remove/all"
+	cacheStatsURL      = "cache/stats/:stats_type"
+	cacheStatslocalURL = "cache/stats/local"
+	cacheStatsAllURL   = "cache/stats/all"
+	cacheImportURL     = "cache/import"
 
-	ME = ""
-	SIBLINGS_MANAGER *SiblingsManager
+	// ME amongst my siblings
+	ME          = ""
+	siblingsMgr *siblingsManager
 )
 
 var (
-	CACHE *Cache
+	mainCache *cacheOperator
 )
 
-
-
 func udpBeacon() {
-	addr, err := net.ResolveUDPAddr("udp", SIBLINGS_ADDR)
+	addr, err := net.ResolveUDPAddr("udp", siblingsAddr)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -62,7 +63,7 @@ func udpBeacon() {
 	c, err := net.DialUDP("udp", nil, addr)
 	for {
 		c.Write([]byte(ME))
-		time.Sleep(BEACON_FREQ * time.Second)
+		time.Sleep(beaconFreq * time.Second)
 	}
 }
 
@@ -89,13 +90,13 @@ func serveMulticastUDP(a string, iface *net.Interface, callback func(*net.UDPAdd
 	}
 }
 
-func exportcache(sig_ch chan os.Signal) {
+func exportcache(sigCh chan os.Signal) {
 
-	s := <-sig_ch
+	s := <-sigCh
 
-	log.Println("Received signal",s)
+	log.Println("Received signal", s)
 
-	SIBLINGS_MANAGER.DistributeContent()
+	siblingsMgr.distributeContent()
 
 	os.Exit(0)
 }
@@ -104,68 +105,66 @@ func main() {
 
 	ME, _ = os.Hostname()
 
-	var beacon_interface *net.Interface
+	var beaconIface *net.Interface
 
 	readConfig()
 
-	if BEACON_INTERFACE == "" {
-		beacon_interface = nil
-		BEACON_INTERFACE = "default"
+	if beaconInterface == "" {
+		beaconIface = nil
+		beaconInterface = "default"
 	} else {
 		var err error
-		beacon_interface, err = net.InterfaceByName(BEACON_INTERFACE)
+		beaconIface, err = net.InterfaceByName(beaconInterface)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 
-	log.Println("Starting Dcached", VERSION,"on", ME, "[ port", CACHE_PORT,"]", CACHE_MODE, "mode")
-	if CACHE_MODE == "cluster" {
-		log.Println("Multicast group", SIBLINGS_ADDR)
-		log.Println("Beacon interval", int(BEACON_FREQ), "seconds")
-		log.Println("Siblings TTL", SIBLING_TTL, "seconds")
+	log.Println("Starting Dcached", VERSION, "on", ME, "[ port", cachePort, "]", cacheMode, "mode")
+	if cacheMode == "cluster" {
+		log.Println("Multicast group", siblingsAddr)
+		log.Println("Beacon interval", int(beaconFreq), "seconds")
+		log.Println("Siblings TTL", siblingTTL, "seconds")
 		log.Println("Max.datagram size", maxDatagramSize)
-		log.Println("Beacon network interface", BEACON_INTERFACE)
+		log.Println("Beacon network interface", beaconInterface)
 	}
-	log.Println("Garbage collector interval", CACHE_GC_FREQ, "seconds")
+	log.Println("Garbage collector interval", cacheGCFreq, "seconds")
 
-	CACHE = NewCache()
-	SIBLINGS_MANAGER = NewSiblingsManager()
+	mainCache = newCache()
+	siblingsMgr = newSiblingsManager()
 
-	sig_ch := make(chan os.Signal, 1)
-	signal.Notify(sig_ch, os.Interrupt)
-	signal.Notify(sig_ch, syscall.SIGTERM)
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt)
+	signal.Notify(sigCh, syscall.SIGTERM)
 
-	go exportcache(sig_ch)
+	go exportcache(sigCh)
 
-	if CACHE_MODE == "cluster" {
+	if cacheMode == "cluster" {
 
 		go udpBeacon()
-		go serveMulticastUDP(SIBLINGS_ADDR, beacon_interface, SIBLINGS_MANAGER.MsgHandler)
+		go serveMulticastUDP(siblingsAddr, beaconIface, siblingsMgr.msgHandler)
 		//go serveMulticastUDP(SIBLINGS_ADDR, nil, SIBLINGS_MANAGER.MsgHandler)
 	}
 
-    router := httprouter.New()
+	router := httprouter.New()
 
-	router.NotFound = NotFoundHandler{}
-	router.MethodNotAllowed = MethodNotAllowedHandler{}
+	router.NotFound = notFoundHandler{}
+	router.MethodNotAllowed = methodNotAllowedHandler{}
 
-    router.POST("/"+CACHE_GET_URL, CacheGet)
-    router.OPTIONS("/"+CACHE_GET_URL, CacheGetDoc)
+	router.POST("/"+cacheGetURL, cacheGet)
+	router.OPTIONS("/"+cacheGetURL, cacheGetDoc)
 
-    router.POST("/"+CACHE_SET_URL, CacheSet)
-    router.OPTIONS("/"+CACHE_SET_URL, CacheSetDoc)
+	router.POST("/"+cacheSetURL, cacheSet)
+	router.OPTIONS("/"+cacheSetURL, cacheSetDoc)
 
-    router.OPTIONS("/"+CACHE_REMOVE_URL, CacheRemoveDoc)
-    router.POST("/"+CACHE_REMOVE_URL, CacheRemove)
+	router.OPTIONS("/"+cacheRemoveURL, cacheRemoveDoc)
+	router.POST("/"+cacheRemoveURL, cacheRemove)
 
-    router.OPTIONS("/"+CACHE_STATS_URL, CacheStatsHandlerDoc)
-    router.GET("/"+CACHE_STATS_URL, CacheStatsHandler)
+	router.OPTIONS("/"+cacheStatsURL, cacheStatsHandlerDoc)
+	router.GET("/"+cacheStatsURL, cacheStatsHandler)
 
-    router.OPTIONS("/"+CACHE_IMPORT_URL, CacheImportDoc)
-    router.POST("/"+CACHE_IMPORT_URL, CacheImport)
+	router.OPTIONS("/"+cacheImportURL, cacheImportDoc)
+	router.POST("/"+cacheImportURL, cacheImport)
 
-    log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%s", CACHE_IP, CACHE_PORT), router))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%s", cacheIP, cachePort), router))
 }
-
-
