@@ -1,3 +1,4 @@
+[![Go Report Card](https://goreportcard.com/badge/github.com/diegohce/dcached)](https://goreportcard.com/report/github.com/diegohce/dcached)
 [![GitHub release](https://img.shields.io/github/release/diegohce/dcached.svg)](https://github.com/diegohce/dcached/releases/)
 [![Github all releases](https://img.shields.io/github/downloads/diegohce/dcached/total.svg)](https://github.com/diegohce/dcached/releases/)
 [![GPLv3 license](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/diegohce/dcached/blob/master/LICENSE)
