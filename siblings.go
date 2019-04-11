@@ -1,44 +1,43 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"time"
 	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
-	"io/ioutil"
-	"encoding/json"
+	"time"
+
 	//"encoding/hex"
 	"sync"
 )
 
-
-type Sibling struct {
+type sibling struct {
 	Node     string `json:"node"`
-	Ip       string `json:"ip"`
+	IPAddr   string `json:"ip"`
 	LastCall int64  `json:"last_call"`
 }
 
-
-type SiblingsManager struct {
-	siblings map[string]Sibling
-	write_ch chan Sibling
-	gc_ch    chan bool
+type siblingsManager struct {
+	siblings map[string]sibling
+	writeCh  chan sibling
+	gcCh     chan bool
 	mutex    sync.RWMutex
 }
 
-func NewSiblingsManager() *SiblingsManager {
+func newSiblingsManager() *siblingsManager {
 
-	sm := &SiblingsManager{
-		siblings: make(map[string]Sibling),
-		write_ch: make(chan Sibling),
-		mutex: sync.RWMutex{},
+	sm := &siblingsManager{
+		siblings: make(map[string]sibling),
+		writeCh:  make(chan sibling),
+		mutex:    sync.RWMutex{},
 	}
 
 	go func() {
 		for {
-			s := <-sm.write_ch
+			s := <-sm.writeCh
 
 			sm.mutex.Lock()
 
@@ -55,23 +54,23 @@ func NewSiblingsManager() *SiblingsManager {
 	return sm
 }
 
-func (sm *SiblingsManager) MsgHandler(src *net.UDPAddr, bcount int, bread []byte) {
+func (sm *siblingsManager) msgHandler(src *net.UDPAddr, bcount int, bread []byte) {
 	//log.Println(bcount, "bytes read from", src)
 	//log.Println(hex.Dump(bread[:bcount]))
 
 	node := string(bread[:bcount])
 
 	if node != ME {
-		s := Sibling{Node: node,
-			 Ip: fmt.Sprintf("%s", src.IP),
-			 LastCall: time.Now().Unix() }
-		sm.write_ch <-s
+		s := sibling{Node: node,
+			IPAddr:   fmt.Sprintf("%s", src.IP),
+			LastCall: time.Now().Unix()}
+		sm.writeCh <- s
 	}
 
 	sm.mutex.Lock()
 	for k, sibling := range sm.siblings {
-		if time.Now().Unix() - sibling.LastCall >= SIBLING_TTL {
-			log.Println("siblings::gc", k ,"must die")
+		if time.Now().Unix()-sibling.LastCall >= siblingTTL {
+			log.Println("siblings::gc", k, "must die")
 			delete(sm.siblings, k)
 			log.Printf("siblings::gc::count %+v\n", len(sm.siblings))
 		}
@@ -79,9 +78,9 @@ func (sm *SiblingsManager) MsgHandler(src *net.UDPAddr, bcount int, bread []byte
 	sm.mutex.Unlock()
 }
 
-func (sm *SiblingsManager) GetSiblings() []Sibling  {
+func (sm *siblingsManager) getSiblings() []sibling {
 
-	var siblings []Sibling
+	var siblings []sibling
 
 	sm.mutex.RLock()
 	for _, sibling := range sm.siblings {
@@ -92,30 +91,29 @@ func (sm *SiblingsManager) GetSiblings() []Sibling  {
 	return siblings
 }
 
-func (sm *SiblingsManager) PropagateGet(gr *GetRequest) *string {
+func (sm *siblingsManager) propagateGet(gr *getRequest) *string {
 
 	var response *string
 
 	response = nil
-
 
 	sm.mutex.RLock()
 
 	scount := len(sm.siblings)
 	ch := make(chan *string, scount)
 
-	for k,s := range sm.siblings {
+	for k, s := range sm.siblings {
 		log.Println("siblings::Forwarding get to", k)
 		go sm.forwardGet(s, gr, ch)
 	}
 	sm.mutex.RUnlock()
 
 	for i := 0; i < scount; i++ {
-		s_response := <-ch
+		sResponse := <-ch
 
-		if s_response != nil {
-			log.Printf("siblings::Sibling response %+v\n", *s_response)
-			response = s_response
+		if sResponse != nil {
+			log.Printf("siblings::Sibling response %+v\n", *sResponse)
+			response = sResponse
 			break //???? REVISAR QUE PASA CON EL RESTO DE LAS GOROUTINES CUANDO SE SALE DE ACA Y LAS DEMAS NO TERMINARON
 		} else {
 			log.Println("siblings::Sibling response nil")
@@ -125,19 +123,18 @@ func (sm *SiblingsManager) PropagateGet(gr *GetRequest) *string {
 	return response
 }
 
+func (sm *siblingsManager) forwardGet(s sibling, gr *getRequest, ch chan *string) {
 
-func (sm *SiblingsManager) forwardGet(s Sibling, gr *GetRequest, ch chan *string) {
+	url := fmt.Sprintf("http://%s:%s/%s", s.IPAddr, cachePort, cacheGetURL)
 
-	url := fmt.Sprintf("http://%s:%s/%s", s.Ip, CACHE_PORT, CACHE_GET_URL)
+	grJSON, _ := json.Marshal(gr)
 
-	gr_json , _ := json.Marshal(gr)
-
-	payload := bytes.NewReader(gr_json)
+	payload := bytes.NewReader(grJSON)
 
 	req, err := http.NewRequest("POST", url, payload)
 	if err != nil {
 		log.Println(err)
-		ch <-nil
+		ch <- nil
 		return
 	}
 
@@ -147,7 +144,7 @@ func (sm *SiblingsManager) forwardGet(s Sibling, gr *GetRequest, ch chan *string
 	res, err := client.Do(req)
 	if err != nil {
 		log.Println(err)
-		ch <-nil
+		ch <- nil
 		return
 	}
 	defer res.Body.Close()
@@ -158,67 +155,65 @@ func (sm *SiblingsManager) forwardGet(s Sibling, gr *GetRequest, ch chan *string
 		//e := &ExceptionResponse{}
 		//err = json.Unmarshal(body, e)
 		//if err != nil {
-			log.Println(err, string(body))
+		log.Println(err, string(body))
 		//} else {
 		//	log.Printf("%s\n", e)
 		//}
-		ch<-nil
+		ch <- nil
 		return
 	}
 
-	cr := &CacheResponse{}
+	cr := &cacheResponse{}
 
 	err = json.Unmarshal(body, &cr)
 	if err != nil {
 		log.Println(err)
-		ch <-nil
+		ch <- nil
 		return
 	}
 
 	gr.SiblingName = s.Node
-	ch <-&cr.Value
+	ch <- &cr.Value
 
 }
 
-
-func (sm *SiblingsManager) PropagateSet(sr *SetRequest) {
+func (sm *siblingsManager) propagateSet(sr *setRequest) {
 
 	sm.mutex.RLock()
 
 	scount := len(sm.siblings)
 	ch := make(chan int, scount)
 
-	for k,s := range sm.siblings {
+	for k, s := range sm.siblings {
 		log.Println("siblings::Forwarding set to", k)
 		go sm.forwardSet(s, sr, ch)
 	}
 	sm.mutex.RUnlock()
 
 	for i := 0; i < scount; i++ {
-		status_code := <-ch
+		statusCode := <-ch
 
-		if status_code == 200 {
-			log.Printf("siblings::Sibling::set response %d\n", status_code)
+		if statusCode == 200 {
+			log.Printf("siblings::Sibling::set response %d\n", statusCode)
 			break
 		} else {
-			log.Println("siblings::Sibling::set response", status_code)
+			log.Println("siblings::Sibling::set response", statusCode)
 		}
 	}
 }
 
+func (sm *siblingsManager) forwardSet(s sibling, sr *setRequest, ch chan int) {
 
-func (sm *SiblingsManager) forwardSet(s Sibling, sr *SetRequest, ch chan int) {
+	url := fmt.Sprintf("http://%s:%s/%s", s.IPAddr, cachePort, cacheSetURL)
 
-	url := fmt.Sprintf("http://%s:%s/%s", s.Ip, CACHE_PORT, CACHE_SET_URL)
+	srJSON, _ := json.Marshal(sr)
 
-	sr_json , _ := json.Marshal(sr)
-
-	payload := bytes.NewReader(sr_json)
+	payload := bytes.NewReader(srJSON)
 
 	req, err := http.NewRequest("POST", url, payload)
 	if err != nil {
 		log.Println(err)
-		ch <-0
+		ch <- 0
 		return
 	}
 
@@ -228,11 +223,10 @@ func (sm *SiblingsManager) forwardSet(s Sibling, sr *SetRequest, ch chan int) {
 	res, err := client.Do(req)
 	if err != nil {
 		log.Println(err)
-		ch <-0
+		ch <- 0
 		return
 	}
 	defer res.Body.Close()
-
 
 	if res.StatusCode != 200 {
 		log.Printf("Sibling %s does not have %s::%s\n", s.Node, sr.AppName, sr.Key)
@@ -241,45 +235,42 @@ func (sm *SiblingsManager) forwardSet(s Sibling, sr *SetRequest, ch chan int) {
 		log.Printf("Sibling %s does have %s::%s\n", s.Node, sr.AppName, sr.Key)
 	}
 
-	ch <-res.StatusCode
+	ch <- res.StatusCode
 
 }
 
-
-
-func (sm *SiblingsManager) PropagateRemove(rr *RemoveRequest, cache_block string) {
+func (sm *siblingsManager) propagateRemove(rr *removeRequest, cacheBlock string) {
 
 	sm.mutex.RLock()
 
-	for k,s := range sm.siblings {
+	for k, s := range sm.siblings {
 		log.Println("siblings::Forwarding remove to", k)
-		go sm.forwardRemove(s, rr, cache_block)
+		go sm.forwardRemove(s, rr, cacheBlock)
 	}
 	sm.mutex.RUnlock()
 
 }
 
-
-func (sm *SiblingsManager) forwardRemove(s Sibling, rr *RemoveRequest, cache_block string) {
+func (sm *siblingsManager) forwardRemove(s sibling, rr *removeRequest, cacheBlock string) {
 
 	var url string
 
-	if cache_block == "key" {
-		url = fmt.Sprintf("http://%s:%s/%s", s.Ip, CACHE_PORT, CACHE_REMOVE_KEY_URL)
+	if cacheBlock == "key" {
+		url = fmt.Sprintf("http://%s:%s/%s", s.IPAddr, cachePort, cacheRemoveKeyURL)
 
-	} else if cache_block == "application" {
-		url = fmt.Sprintf("http://%s:%s/%s", s.Ip, CACHE_PORT, CACHE_REMOVE_APP_URL)
+	} else if cacheBlock == "application" {
+		url = fmt.Sprintf("http://%s:%s/%s", s.IPAddr, cachePort, cacheRemoveAppURL)
 
-	} else if cache_block == "all" {
-		url = fmt.Sprintf("http://%s:%s/%s", s.Ip, CACHE_PORT, CACHE_REMOVE_ALL_URL)
+	} else if cacheBlock == "all" {
+		url = fmt.Sprintf("http://%s:%s/%s", s.IPAddr, cachePort, cacheRemoveAllURL)
 
 	} else {
 		return
 	}
 
-	rr_json , _ := json.Marshal(rr)
+	rrJSON, _ := json.Marshal(rr)
 
-	payload := bytes.NewReader(rr_json)
+	payload := bytes.NewReader(rrJSON)
 
 	req, err := http.NewRequest("POST", url, payload)
 	if err != nil {
@@ -299,14 +290,14 @@ func (sm *SiblingsManager) forwardRemove(s Sibling, rr *RemoveRequest, cache_blo
 
 }
 
-func (sm *SiblingsManager) PropagateStats() chan *CacheStats {
+func (sm *siblingsManager) propagateStats() chan *cacheStats {
 
 	sm.mutex.RLock()
 
 	scount := len(sm.siblings)
-	ch := make(chan *CacheStats, scount)
+	ch := make(chan *cacheStats, scount)
 
-	for k ,s := range sm.siblings {
+	for k, s := range sm.siblings {
 		log.Println("siblings::Forwarding statsop to", k)
 		go sm.forwardStats(s, ch)
 	}
@@ -317,27 +308,25 @@ func (sm *SiblingsManager) PropagateStats() chan *CacheStats {
 		return ch
 	}
 
-	out_ch := make(chan *CacheStats, scount)
+	outCh := make(chan *cacheStats, scount)
 
 	for i := 0; i < scount; i++ {
 		stat := <-ch
-		out_ch <-stat
+		outCh <- stat
 	}
-	close(out_ch)
+	close(outCh)
 
-	return out_ch
+	return outCh
 }
 
+func (sm *siblingsManager) forwardStats(s sibling, ch chan *cacheStats) {
 
-func (sm *SiblingsManager) forwardStats(s Sibling, ch chan *CacheStats ) {
-
-	url := fmt.Sprintf("http://%s:%s/%s", s.Ip, CACHE_PORT, CACHE_STATS_LOCAL_URL)
-
+	url := fmt.Sprintf("http://%s:%s/%s", s.IPAddr, cachePort, cacheStatslocalURL)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Println(err)
-		ch <-nil
+		ch <- nil
 		return
 	}
 
@@ -347,7 +336,7 @@ func (sm *SiblingsManager) forwardStats(s Sibling, ch chan *CacheStats ) {
 	res, err := client.Do(req)
 	if err != nil {
 		log.Println(err)
-		ch <-nil
+		ch <- nil
 		return
 	}
 	defer res.Body.Close()
@@ -356,26 +345,26 @@ func (sm *SiblingsManager) forwardStats(s Sibling, ch chan *CacheStats ) {
 
 	if res.StatusCode != 200 {
 		log.Println(err, string(body))
-		ch<-nil
+		ch <- nil
 		return
 	}
 
-	cs := &CacheStats{}
+	cs := &cacheStats{}
 
 	err = json.Unmarshal(body, cs)
 	if err != nil {
 		log.Println(err)
-		ch <-nil
+		ch <- nil
 		return
 	}
 
 	log.Printf("Sending %+v to stats channel\n", *cs)
-	ch <-cs
+	ch <- cs
 }
 
-func (sm *SiblingsManager) DistributeContent() {
+func (sm *siblingsManager) distributeContent() {
 
-	var sib_list []Sibling
+	var sibList []sibling
 
 	sm.mutex.RLock()
 	scount := len(sm.siblings)
@@ -384,24 +373,24 @@ func (sm *SiblingsManager) DistributeContent() {
 		return
 	}
 
-	for _ ,s := range sm.siblings {
-		sib_list = append(sib_list, s)
+	for _, s := range sm.siblings {
+		sibList = append(sibList, s)
 	}
 	sm.mutex.RUnlock()
 
-	ch := make(chan *ExportUnit)
+	ch := make(chan *exportUnit)
 
-	go CACHE.contentExporter(ch)
+	go mainCache.contentExporter(ch)
 
-	sib_idx := 0
-	sib_list_len := len(sib_list)
+	sibIdx := 0
+	sibListLen := len(sibList)
 
 	for eu := range ch {
-		if sib_idx == sib_list_len {
-			sib_idx = 0
+		if sibIdx == sibListLen {
+			sibIdx = 0
 		}
-		sib := sib_list[sib_idx]
-		sib_idx++
+		sib := sibList[sibIdx]
+		sibIdx++
 		log.Printf("siblings::exporting %+v to %s\n", eu, sib.Node)
 		sm.distributeExport(sib, eu)
 
@@ -409,13 +398,13 @@ func (sm *SiblingsManager) DistributeContent() {
 
 }
 
-func (sm *SiblingsManager) distributeExport(s Sibling, eu *ExportUnit) {
+func (sm *siblingsManager) distributeExport(s sibling, eu *exportUnit) {
 
-	url := fmt.Sprintf("http://%s:%s/%s", s.Ip, CACHE_PORT, CACHE_IMPORT_URL)
+	url := fmt.Sprintf("http://%s:%s/%s", s.IPAddr, cachePort, cacheImportURL)
 
-	eu_json , _ := json.Marshal(eu)
+	euJSON, _ := json.Marshal(eu)
 
-	payload := bytes.NewReader(eu_json)
+	payload := bytes.NewReader(euJSON)
 
 	req, err := http.NewRequest("POST", url, payload)
 	if err != nil {
@@ -433,10 +422,6 @@ func (sm *SiblingsManager) distributeExport(s Sibling, eu *ExportUnit) {
 	}
 	defer res.Body.Close()
 
-
-	log.Printf("Sibling %s status code %d\n", s.Node, res.StatusCode )
+	log.Printf("Sibling %s status code %d\n", s.Node, res.StatusCode)
 
 }
-
-
-

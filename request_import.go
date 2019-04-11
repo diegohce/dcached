@@ -1,18 +1,19 @@
 package main
 
 import (
-    "fmt"
+	"fmt"
 	"log"
+
 	//"time"
 	//"strconv"
-    "net/http"
 	"encoding/json"
 	"io/ioutil"
-    "github.com/julienschmidt/httprouter"
+	"net/http"
+
+	"github.com/julienschmidt/httprouter"
 )
 
-
-func newExportUnit(r *http.Request) (*ExportUnit, error) {
+func newExportUnit(r *http.Request) (*exportUnit, error) {
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -20,37 +21,36 @@ func newExportUnit(r *http.Request) (*ExportUnit, error) {
 	}
 	defer r.Body.Close()
 
-	eu := &ExportUnit{}
+	eu := &exportUnit{}
 
 	err = json.Unmarshal(body, eu)
 
 	return eu, err
 }
 
-func CacheImport(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func cacheImport(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 	eu, err := newExportUnit(r)
 	if err != nil {
 		log.Println(err)
-		e := NewException("InvalidJsonPayloadException", "Invalid json payload")
+		e := newException("InvalidJsonPayloadException", "Invalid json payload")
 		e.Extended["more"] = fmt.Sprintf("%s", err)
-		e.Write(w)
+		e.write(w)
 		return
 	}
 
-	importop := &writeOp {
+	importop := &writeOp{
 		done: make(chan bool),
-		app: eu.AppName,
-		key: eu.Key,
-		val: eu.Value,
-		ttl: eu.TTL,
-		ct: eu.CreatedAt,
-	 }
+		app:  eu.AppName,
+		key:  eu.Key,
+		val:  eu.Value,
+		ttl:  eu.TTL,
+		ct:   eu.CreatedAt,
+	}
 
 	//timeit_start := time.Now().UnixNano()
 
 	//LOCAL WRITE
-	CACHE.Imports <-importop
+	mainCache.Imports <- importop
 	//<-importop.done //CAN THIS LINE BE REMOVED FOR PERFORMANCE?
 }
-

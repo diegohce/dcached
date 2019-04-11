@@ -3,10 +3,11 @@ package main
 import (
 	"fmt"
 	"net/http"
-    "github.com/julienschmidt/httprouter"
+
+	"github.com/julienschmidt/httprouter"
 )
 
-func CacheGetDoc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func cacheGetDoc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 	doc := `{
 	"POST": {
@@ -32,8 +33,7 @@ func CacheGetDoc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 }
 
-
-func CacheSetDoc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func cacheSetDoc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 	doc := `{
 	"POST": {
@@ -69,13 +69,12 @@ func CacheSetDoc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 }
 
-
-func CacheRemoveDoc(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func cacheRemoveDoc(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	doc := ""
-	cache_block := ps.ByName("cache_block")
+	cacheBlock := ps.ByName("cache_block")
 
-	if cache_block == "application" {
+	if cacheBlock == "application" {
 
 		doc = `{
 	"POST": {
@@ -90,7 +89,7 @@ func CacheRemoveDoc(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 	}
 }`
 
-	} else if cache_block == "key" {
+	} else if cacheBlock == "key" {
 		doc = `{
 	"POST": {
 		"description": "Removes value from dcached cluster",
@@ -109,7 +108,7 @@ func CacheRemoveDoc(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 	}
 }`
 
-	} else if cache_block == "all" {
+	} else if cacheBlock == "all" {
 		doc = `{
 	"POST": {
 		"description": "Wipes dcached cluster (all nodes)",
@@ -123,11 +122,10 @@ func CacheRemoveDoc(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 	}
 }`
 	} else {
-		e := NewException("ResourceNotFoundException", "Resource not found")
-		e.Write(w)
+		e := newException("ResourceNotFoundException", "Resource not found")
+		e.write(w)
 		return
 	}
-
 
 	w.Header().Set("Allow", "POST,OPTIONS")
 	w.Header().Set("Content-Type", "application/json")
@@ -135,7 +133,7 @@ func CacheRemoveDoc(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 
 }
 
-func CacheImportDoc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func cacheImportDoc(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 	doc := `{
 	"POST": {
@@ -150,14 +148,12 @@ func CacheImportDoc(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 
 }
 
-
-
-func CacheStatsHandlerDoc(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func cacheStatsHandlerDoc(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	doc := ""
-	stats_type := ps.ByName("stats_type")
+	statsType := ps.ByName("stats_type")
 
-	if stats_type == "local" {
+	if statsType == "local" {
 
 		doc = `{
 	"GET": {
@@ -166,7 +162,7 @@ func CacheStatsHandlerDoc(w http.ResponseWriter, r *http.Request, ps httprouter.
 	}
 }`
 
-	} else if stats_type == "all" {
+	} else if statsType == "all" {
 		doc = `{
 	"GET": {
 		"description": "Returns statistics from the whole cluster",
@@ -175,17 +171,13 @@ func CacheStatsHandlerDoc(w http.ResponseWriter, r *http.Request, ps httprouter.
 }`
 
 	} else {
-		e := NewException("ResourceNotFoundException", "Resource not found")
-		e.Write(w)
+		e := newException("ResourceNotFoundException", "Resource not found")
+		e.write(w)
 		return
 	}
-
 
 	w.Header().Set("Allow", "GET,OPTIONS")
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, "%s", doc)
 
 }
-
-
-
