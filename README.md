@@ -39,6 +39,90 @@ siblings:
   beacon_interface: "" #Network interface to use to send the multicast beacon
 ```
 
+# Cache Operations
+
+Dcached differs from others cache systems as it does not use a key-value based
+model, it uses a key-key-value model as in application_name-key-value. So several
+applications can use the same dcached cluster without key collision amongst
+applications.
+
+ * Set
+ * Get
+ * Remove
+ * Stats
+ 
+## Set 
+
+HTTP POST to /cache/set
+
+```json
+{
+	"appname":"my-awesome-service",
+	"key": "unique-key-for-this-app",
+	"value": "some-frequent-value",
+	"ttl": 120
+}
+```
+## Get 
+
+HTTP POST to /cache/get
+
+```json
+{
+	"appname":"my-awesome-service",
+	"key": "unique-key-for-this-app"
+}
+```
+
+## Remove
+
+Remove Operations
+
+ * key
+ * application
+ * all
+
+### Remove key
+
+HTTP POST to /cache/remove/key
+
+```json
+{
+	"appname":"my-awesome-service",
+	"key": "unique-key-for-this-app"
+}
+```
+
+### Remove application
+
+HTTP POST to /cache/remove/application
+
+```json
+{
+	"appname":"my-awesome-service",
+	"key": "unique-key-for-this-app"
+}
+```
+
+### Remove all
+
+HTTP POST to /cache/remove/all
+
+```json
+{
+	"appname":"all"
+}
+```
+
+## Stats
+
+ * local (requested node)
+HTTP GET to /cache/stats/local
+
+ * all   (all cluster nodes)
+HTTP GET to /cache/stats/all
+
+
 # FILES
 
 /etc/dcached.conf
